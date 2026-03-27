@@ -1,0 +1,9 @@
+agent_id,agent_role,languages,queue_permissions,priority_scope,skill_tags,shift_start,shift_end,capacity_min_per_day,scarce_resource
+GEN-01,generalist,EN|DE,Account Access|Billing|Product Support,P2|P3|P4,account_access|billing|product_support|de_language|enterprise_handling,08:00,16:00,480,0
+GEN-02,generalist,EN|DE,Account Access|Billing|Product Support,P2|P3|P4,account_access|billing|product_support|de_language|enterprise_handling,08:00,16:00,480,0
+GEN-03,generalist,EN|DE,Account Access|Billing|Product Support,P2|P3|P4,account_access|billing|product_support|de_language|enterprise_handling,08:00,16:00,480,0
+PS-01,product_specialist,EN|DE,Product Support,P1|P2|P3|P4,product_support|product_specialist|enterprise_handling|de_language,08:00,16:00,480,0
+PS-02,product_specialist,EN,Product Support,P1|P2|P3|P4,product_support|product_specialist|enterprise_handling,08:00,16:00,480,0
+INT-01,integration_specialist,EN|DE,Integrations/API,P1|P2|P3|P4,integrations_api|api_specialist|integration_specialist|enterprise_handling|de_language,08:00,16:00,480,0
+INT-02,integration_specialist,EN,Integrations/API,P1|P2|P3|P4,integrations_api|api_specialist|integration_specialist|enterprise_handling,08:00,16:00,480,0
+SIC-01,senior_incident_coordinator,EN|DE,Account Access|Billing|Product Support|Integrations/API,P1|P2,account_access|billing|product_support|integrations_api|api_specialist|incident_escalation|enterprise_handling|de_language,08:00,16:00,480,1

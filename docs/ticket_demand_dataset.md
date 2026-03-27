@@ -1,0 +1,69 @@
+# Ticket Demand Dataset
+
+## Use Case
+
+This dataset represents incoming support-ticket demand for a service-operations environment. It is synthetic by design and intended for experimentation, portfolio work, and later optimization modeling.
+
+This ticket file does not include agent supply, staffing, or assignment outcomes. Each row is a demand-side record only. Agent supply is defined separately in `data/agents.csv`.
+
+## Business Story
+
+- A B2B software support team handles tickets across four queues:
+  `Account Access`, `Billing`, `Product Support`, and `Integrations/API`.
+- Tickets arrive during weekday business hours only.
+- Priority influences both first-response and resolution expectations.
+- Ticket characteristics such as queue, language, customer tier, complexity, and VIP/reopened status shape urgency and effort.
+
+## Schema
+
+| Column | Meaning |
+| --- | --- |
+| `ticket_id` | Unique synthetic ticket identifier. |
+| `arrival_ts` | Ticket arrival timestamp in business hours. |
+| `queue` | Functional support queue. |
+| `priority` | Ticket urgency bucket from `P1` to `P4`. |
+| `language` | Customer-facing language requirement. |
+| `channel` | Intake channel such as portal, email, or chat. |
+| `customer_tier` | Customer segment. |
+| `is_vip` | VIP flag derived from enterprise cases. |
+| `is_reopened` | Whether the ticket is a reopened issue. |
+| `complexity` | Synthetic complexity label. |
+| `estimated_effort_min` | Estimated work content in minutes. |
+| `first_response_sla_min` | Target first-response time in business minutes. |
+| `first_response_due_ts` | Explicit first-response deadline on the business calendar. |
+| `resolution_sla_business_min` | Target resolution time in business minutes. |
+| `resolution_due_ts` | Explicit resolution deadline on the business calendar. |
+| `required_skill_tags` | Demand-side skill requirements encoded as pipe-delimited tags. |
+| `ticket_subject` | Human-readable synthetic subject line for context only. |
+
+## Generation Rules
+
+- Random seed is fixed at `42` for reproducibility.
+- Business calendar is Monday to Friday, `08:00` to `16:00`.
+- Daily ticket volume varies between `80` and `120`.
+- Arrivals are continuous within the shift and mildly concentrated in late morning.
+- SLA deadlines skip weekends and non-business hours.
+- Queue-specific complexity and effort ranges are used to keep records plausible.
+- `required_skill_tags` use a compact role-aligned vocabulary:
+  queue tags plus optional `de_language`, `enterprise_handling`,
+  `api_specialist`, `incident_escalation`, `product_specialist`,
+  and `integration_specialist`.
+
+## Validation Expectations
+
+The generated dataset should satisfy the following checks:
+
+- No null or empty fields.
+- Unique `ticket_id` values.
+- Monotonically ordered `arrival_ts`.
+- `arrival_ts <= first_response_due_ts <= resolution_due_ts` for every row.
+- All timestamps fall inside the business calendar.
+- Category mixes remain broadly consistent with configured generation weights.
+
+## Interpretation Notes
+
+- `required_skill_tags` is kept in the dataset even before agent data exists because it makes later assignment logic explicit.
+- `incident_escalation` marks `P1` work, while `product_specialist` and `integration_specialist` identify queue-specific complex work.
+- `ticket_subject` is descriptive metadata, not a modeling key.
+- The dataset is designed to be easy to explain in a portfolio setting rather than to mimic every edge case of a real support organization.
+- The companion agent-supply file is documented in [agent_supply_dataset.md](agent_supply_dataset.md).

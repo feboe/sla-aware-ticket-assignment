@@ -305,12 +305,16 @@ def make_required_skill_tags(
     tags = [QUEUE_SKILL[queue]]
     if language == "DE":
         tags.append("de_language")
-    if complexity == "complex" or priority == "P1":
-        tags.append("senior_review")
-    if queue == "Integrations/API":
-        tags.append("api_specialist")
     if customer_tier == "Enterprise" or is_vip:
         tags.append("enterprise_handling")
+    if queue == "Integrations/API":
+        tags.append("api_specialist")
+    if priority == "P1":
+        tags.append("incident_escalation")
+    if queue == "Product Support" and complexity == "complex":
+        tags.append("product_specialist")
+    if queue == "Integrations/API" and complexity == "complex":
+        tags.append("integration_specialist")
     return "|".join(tags)
 
 
