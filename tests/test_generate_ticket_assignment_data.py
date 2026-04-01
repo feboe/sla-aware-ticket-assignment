@@ -1,3 +1,5 @@
+"""Contract tests for the synthetic ticket-demand dataset generator."""
+
 from __future__ import annotations
 
 import unittest
@@ -44,6 +46,8 @@ EXPECTED_COLUMNS = [
 
 
 def feasible_efforts(queue: str, complexity: str, priority: str, is_vip: int) -> set[int]:
+    """Rebuild the reachable effort values for one queue/complexity combination."""
+
     lo, hi = EFFORT_RANGES[(queue, complexity)]
     values = set()
     for base_effort in range(lo, hi + 1):
@@ -59,6 +63,8 @@ def feasible_efforts(queue: str, complexity: str, priority: str, is_vip: int) ->
 
 
 class TestGenerateTicketAssignmentData(unittest.TestCase):
+    """Validate schema, calendar logic, and sanity checks for ticket generation."""
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.rows = generate_dataset(SEED)

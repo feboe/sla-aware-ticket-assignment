@@ -1,3 +1,5 @@
+"""Contract tests for the fixed agent-supply CSV and its demand compatibility."""
+
 from __future__ import annotations
 
 import csv
@@ -34,10 +36,14 @@ EXPECTED_SKILL_TAGS = {
 
 
 def parse_set(value: str) -> set[str]:
+    """Parse pipe-delimited roster fields into a plain Python set."""
+
     return set(value.split("|")) if value else set()
 
 
 class TestAgentSupplyData(unittest.TestCase):
+    """Validate the agent roster schema and its intended v1 coverage."""
+
     @classmethod
     def setUpClass(cls) -> None:
         with AGENTS_PATH.open(newline="", encoding="utf-8") as handle:

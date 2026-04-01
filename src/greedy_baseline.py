@@ -174,6 +174,89 @@ def tardiness_minutes(actual_ts: datetime, due_ts: datetime) -> float:
     return round(max(0.0, (actual_ts - due_ts).total_seconds() / 60.0), 2)
 
 
+def empty_priority_tardiness_metrics() -> dict[str, float | int]:
+    """Build one empty backlog-metric bucket for a single priority class."""
+
+    return {
+        "ticket_count": 0,
+        "effort_min": 0,
+        "first_response_tardiness_min": 0.0,
+        "resolution_tardiness_min": 0.0,
+        "overdue_first_response_count": 0,
+        "overdue_resolution_count": 0,
+    }
+
+
+def empty_metric_section() -> dict[str, Any]:
+    """Build one empty metric section shared by scheduled and backlog views."""
+
+    return {
+        "ticket_count": 0,
+        "effort_min": 0,
+        "first_response_tardiness_min": 0.0,
+        "resolution_tardiness_min": 0.0,
+        "overdue_first_response_count": 0,
+        "overdue_resolution_count": 0,
+        "by_priority": {
+            priority: empty_priority_tardiness_metrics() for priority in PRIORITY_RANK
+        },
+    }
+
+
+def accumulate_metric_section(
+    section: dict[str, Any],
+    priority: str,
+    effort_min: int,
+    first_response_tardiness: float,
+    resolution_tardiness: float,
+) -> None:
+    """Accumulate one ticket's contribution into a metric section."""
+
+    priority_bucket = section["by_priority"][priority]
+
+    section["ticket_count"] += 1
+    section["effort_min"] += effort_min
+    section["first_response_tardiness_min"] += first_response_tardiness
+    section["resolution_tardiness_min"] += resolution_tardiness
+    priority_bucket["ticket_count"] += 1
+    priority_bucket["effort_min"] += effort_min
+    priority_bucket["first_response_tardiness_min"] += first_response_tardiness
+    priority_bucket["resolution_tardiness_min"] += resolution_tardiness
+
+    if first_response_tardiness > 0:
+        section["overdue_first_response_count"] += 1
+        priority_bucket["overdue_first_response_count"] += 1
+    if resolution_tardiness > 0:
+        section["overdue_resolution_count"] += 1
+        priority_bucket["overdue_resolution_count"] += 1
+
+
+def finalize_metric_section(section: dict[str, Any]) -> dict[str, Any]:
+    """Round float values while keeping the shared metric schema stable."""
+
+    return {
+        "ticket_count": section["ticket_count"],
+        "effort_min": section["effort_min"],
+        "first_response_tardiness_min": round(section["first_response_tardiness_min"], 2),
+        "resolution_tardiness_min": round(section["resolution_tardiness_min"], 2),
+        "overdue_first_response_count": section["overdue_first_response_count"],
+        "overdue_resolution_count": section["overdue_resolution_count"],
+        "by_priority": {
+            priority: {
+                "ticket_count": values["ticket_count"],
+                "effort_min": values["effort_min"],
+                "first_response_tardiness_min": round(
+                    values["first_response_tardiness_min"], 2
+                ),
+                "resolution_tardiness_min": round(values["resolution_tardiness_min"], 2),
+                "overdue_first_response_count": values["overdue_first_response_count"],
+                "overdue_resolution_count": values["overdue_resolution_count"],
+            }
+            for priority, values in section["by_priority"].items()
+        },
+    }
+
+
 def combine_date_and_time(day: date, value: time) -> datetime:
     """Create a datetime for a given business day and clock time."""
 
@@ -302,6 +385,7 @@ def run_greedy_baseline(
 
     earliest_shift_start = min(agent.shift_start for agent in agents)
     latest_shift_end = max(agent.shift_end for agent in agents)
+    horizon_start_ts = combine_date_and_time(replay_days[0], earliest_shift_start)
     final_horizon_end = combine_date_and_time(replay_days[-1], latest_shift_end)
 
     open_tickets: dict[str, TicketRecord] = {}
@@ -446,7 +530,12 @@ def run_greedy_baseline(
         for ticket in sorted(tickets, key=lambda item: (item.arrival_ts, item.ticket_id))
     ]
     metrics = build_metrics(
-        ordered_schedule, agents, len(replay_days), total_workload_minutes
+        ordered_schedule,
+        agents,
+        len(replay_days),
+        total_workload_minutes,
+        horizon_start_ts,
+        final_horizon_end,
     )
     return BaselineResult(schedule=ordered_schedule, metrics=metrics)
 
@@ -456,49 +545,68 @@ def build_metrics(
     agents: list[AgentRecord],
     replay_day_count: int,
     workload_minutes_per_agent: dict[str, int],
+    horizon_start_ts: datetime,
+    final_horizon_end: datetime,
 ) -> dict[str, Any]:
-    """Aggregate the baseline schedule into summary metrics."""
+    """Aggregate the schedule into overview metrics plus nested detail sections."""
 
-    scheduled = [entry for entry in schedule if entry.status == "scheduled"]
-    backlog = [entry for entry in schedule if entry.status == "backlog_end"]
+    scheduled_metrics = empty_metric_section()
+    backlog_metrics = empty_metric_section()
 
-    sla_violations = {
-        priority: {"first_response": 0, "resolution": 0} for priority in PRIORITY_RANK
-    }
-    total_first_response_tardiness = 0.0
-    total_resolution_tardiness = 0.0
+    for entry in schedule:
+        effort_min = entry.duration_slots * SLOT_MINUTES
+        if entry.status == "scheduled":
+            accumulate_metric_section(
+                scheduled_metrics,
+                entry.priority,
+                effort_min,
+                entry.first_response_tardiness_min or 0.0,
+                entry.resolution_tardiness_min or 0.0,
+            )
+            continue
 
-    for entry in scheduled:
-        first_response_tardiness = entry.first_response_tardiness_min or 0.0
-        resolution_tardiness = entry.resolution_tardiness_min or 0.0
-        total_first_response_tardiness += first_response_tardiness
-        total_resolution_tardiness += resolution_tardiness
-        if first_response_tardiness > 0:
-            sla_violations[entry.priority]["first_response"] += 1
-        if resolution_tardiness > 0:
-            sla_violations[entry.priority]["resolution"] += 1
-
-    utilization_per_agent = {}
-    for agent in agents:
-        total_capacity = replay_day_count * agent.capacity_min_per_day
-        utilization_per_agent[agent.agent_id] = round(
-            workload_minutes_per_agent[agent.agent_id] / total_capacity, 4
+        accumulate_metric_section(
+            backlog_metrics,
+            entry.priority,
+            effort_min,
+            tardiness_minutes(final_horizon_end, entry.first_response_due_ts),
+            tardiness_minutes(final_horizon_end, entry.resolution_due_ts),
         )
 
+    scheduled_metrics = finalize_metric_section(scheduled_metrics)
+    backlog_metrics = finalize_metric_section(backlog_metrics)
+
+    agent_utilization = {}
+    for agent in agents:
+        capacity_minutes = replay_day_count * agent.capacity_min_per_day
+        workload_minutes = workload_minutes_per_agent[agent.agent_id]
+        agent_utilization[agent.agent_id] = {
+            "workload_minutes": workload_minutes,
+            "capacity_minutes": capacity_minutes,
+            "utilization": round(workload_minutes / capacity_minutes, 4),
+        }
+
     return {
-        "total_tickets": len(schedule),
-        "scheduled_tickets": len(scheduled),
-        "end_of_horizon_backlog_count": len(backlog),
-        "end_of_horizon_backlog_effort_min": sum(
-            entry.duration_slots * SLOT_MINUTES for entry in backlog
-        ),
-        "total_first_response_tardiness_min": round(total_first_response_tardiness, 2),
-        "total_resolution_tardiness_min": round(total_resolution_tardiness, 2),
-        "sla_violation_counts_by_priority": sla_violations,
-        "workload_minutes_per_agent": workload_minutes_per_agent,
-        "utilization_per_agent": utilization_per_agent,
-        "slot_minutes": SLOT_MINUTES,
         "replay_business_days": replay_day_count,
+        "slot_minutes": SLOT_MINUTES,
+        "horizon_start_ts": format_timestamp(horizon_start_ts),
+        "horizon_end_ts": format_timestamp(final_horizon_end),
+        "total_tickets": len(schedule),
+        "scheduled_tickets": scheduled_metrics["ticket_count"],
+        "tickets_in_backlog": backlog_metrics["ticket_count"],
+        "total_first_response_tardiness_min": round(
+            scheduled_metrics["first_response_tardiness_min"]
+            + backlog_metrics["first_response_tardiness_min"],
+            2,
+        ),
+        "total_resolution_tardiness_min": round(
+            scheduled_metrics["resolution_tardiness_min"]
+            + backlog_metrics["resolution_tardiness_min"],
+            2,
+        ),
+        "scheduled": scheduled_metrics,
+        "backlog": backlog_metrics,
+        "agent_utilization": agent_utilization,
     }
 
 
@@ -521,7 +629,7 @@ def write_baseline_outputs(
             writer.writerow(entry.to_row())
 
     with metrics_path.open("w", encoding="utf-8") as handle:
-        json.dump(result.metrics, handle, indent=2, sort_keys=True)
+        json.dump(result.metrics, handle, indent=2)
         handle.write("\n")
 
 
