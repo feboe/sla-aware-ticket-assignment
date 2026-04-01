@@ -1,0 +1,48 @@
+{
+  "end_of_horizon_backlog_count": 126,
+  "end_of_horizon_backlog_effort_min": 4995,
+  "replay_business_days": 5,
+  "scheduled_tickets": 385,
+  "sla_violation_counts_by_priority": {
+    "P1": {
+      "first_response": 13,
+      "resolution": 0
+    },
+    "P2": {
+      "first_response": 4,
+      "resolution": 0
+    },
+    "P3": {
+      "first_response": 97,
+      "resolution": 0
+    },
+    "P4": {
+      "first_response": 17,
+      "resolution": 0
+    }
+  },
+  "slot_minutes": 15,
+  "total_first_response_tardiness_min": 110630.55,
+  "total_resolution_tardiness_min": 0.0,
+  "total_tickets": 511,
+  "utilization_per_agent": {
+    "GEN-01": 0.9938,
+    "GEN-02": 0.9875,
+    "GEN-03": 0.9875,
+    "INT-01": 0.9688,
+    "INT-02": 0.95,
+    "PS-01": 0.9812,
+    "PS-02": 0.975,
+    "SIC-01": 0.5813
+  },
+  "workload_minutes_per_agent": {
+    "GEN-01": 2385,
+    "GEN-02": 2370,
+    "GEN-03": 2370,
+    "INT-01": 2325,
+    "INT-02": 2280,
+    "PS-01": 2355,
+    "PS-02": 2340,
+    "SIC-01": 1395
+  }
+}

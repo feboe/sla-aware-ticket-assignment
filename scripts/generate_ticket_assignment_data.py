@@ -1,3 +1,10 @@
+"""Generate the synthetic demand-side ticket dataset used in the project.
+
+The generator keeps the data intentionally simple and explainable: tickets are
+created during business hours only, SLAs are derived from priority, and the
+output stays deterministic for a fixed random seed.
+"""
+
 from __future__ import annotations
 
 import csv
@@ -13,7 +20,7 @@ TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 SHIFT_START_HOUR = 8
 SHIFT_DURATION_HOURS = 8
-N_BUSINESS_DAYS = 10
+N_BUSINESS_DAYS = 5
 START_DATE = datetime(2026, 3, 2, 8, 0, 0)  # Monday
 
 QUEUES = [
@@ -139,6 +146,8 @@ EFFORT_RANGES = {
 
 @dataclass
 class Ticket:
+    """Flat ticket record written directly to the public CSV schema."""
+
     ticket_id: str
     arrival_ts: str
     queue: str
@@ -159,10 +168,14 @@ class Ticket:
 
 
 def weighted_choice(rng: random.Random, values: List[str], weights: List[float]) -> str:
+    """Sample one value from a weighted categorical distribution."""
+
     return rng.choices(values, weights=weights, k=1)[0]
 
 
 def business_days(start: datetime, n: int) -> List[datetime]:
+    """Return the first `n` weekday start timestamps from `start` onward."""
+
     days = []
     cur = start
     while len(days) < n:
@@ -173,6 +186,8 @@ def business_days(start: datetime, n: int) -> List[datetime]:
 
 
 def add_business_minutes(ts: datetime, minutes: int) -> datetime:
+    """Add minutes while skipping non-business hours and weekends."""
+
     cur = ts
     remaining = minutes
     shift_start = timedelta(hours=SHIFT_START_HOUR)
@@ -204,6 +219,8 @@ def add_business_minutes(ts: datetime, minutes: int) -> datetime:
 
 
 def next_business_day_start(ts: datetime) -> datetime:
+    """Jump to the next weekday at the configured shift start."""
+
     cur = datetime(ts.year, ts.month, ts.day, SHIFT_START_HOUR, 0, 0) + timedelta(days=1)
     while cur.weekday() >= 5:
         cur += timedelta(days=1)
@@ -211,14 +228,20 @@ def next_business_day_start(ts: datetime) -> datetime:
 
 
 def format_timestamp(ts: datetime) -> str:
+    """Format timestamps using the shared CSV timestamp representation."""
+
     return ts.strftime(TIMESTAMP_FORMAT)
 
 
 def parse_timestamp(value: str) -> datetime:
+    """Parse timestamps from the shared CSV timestamp representation."""
+
     return datetime.strptime(value, TIMESTAMP_FORMAT)
 
 
 def is_business_timestamp(ts: datetime) -> bool:
+    """Check whether a timestamp lies within the configured business calendar."""
+
     if ts.weekday() >= 5:
         return False
 
@@ -235,6 +258,8 @@ def choose_priority(
     is_reopened: int,
     channel: str,
 ) -> str:
+    """Sample a priority after applying simple business-driven adjustments."""
+
     weights = list(QUEUE_PRIORITY_WEIGHTS[queue])
 
     # Enterprise and VIP cases shift mass towards higher priority.
@@ -263,6 +288,8 @@ def choose_priority(
 def choose_complexity(
     rng: random.Random, queue: str, priority: str, is_reopened: int
 ) -> str:
+    """Sample complexity with extra mass on harder reopened or urgent work."""
+
     weights = list(COMPLEXITY_BY_QUEUE[queue])
     if priority == "P1":
         weights[2] += 0.18
@@ -283,6 +310,8 @@ def choose_complexity(
 def estimate_effort(
     rng: random.Random, queue: str, complexity: str, priority: str, is_vip: int
 ) -> int:
+    """Draw handling effort in minutes from queue- and complexity-based ranges."""
+
     lo, hi = EFFORT_RANGES[(queue, complexity)]
     effort = rng.randint(lo, hi)
     if priority == "P1":
@@ -302,6 +331,8 @@ def make_required_skill_tags(
     customer_tier: str,
     is_vip: int,
 ) -> str:
+    """Construct demand-side capability tags for later assignment logic."""
+
     tags = [QUEUE_SKILL[queue]]
     if language == "DE":
         tags.append("de_language")
@@ -319,6 +350,8 @@ def make_required_skill_tags(
 
 
 def daily_ticket_count(rng: random.Random, idx: int) -> int:
+    """Generate one day's ticket volume within the configured weekly range."""
+
     # Keeps totals in the requested range while still varying by day.
     base = rng.randint(80, 120)
     if idx in {1, 2}:  # Tue/Wed slightly busier in many support teams
@@ -329,6 +362,8 @@ def daily_ticket_count(rng: random.Random, idx: int) -> int:
 def arrival_times_for_day(
     rng: random.Random, day_start: datetime, n: int
 ) -> List[datetime]:
+    """Generate sorted within-day arrivals with a mild late-morning peak."""
+
     # Continuous arrivals during business hours with a mild concentration in late morning.
     seconds_total = SHIFT_DURATION_HOURS * 60 * 60
     arrivals = []
@@ -346,6 +381,8 @@ def arrival_times_for_day(
 
 
 def generate_dataset(seed: int = SEED) -> List[Ticket]:
+    """Generate the full synthetic ticket dataset for the configured horizon."""
+
     rng = random.Random(seed)
     days = business_days(START_DATE, N_BUSINESS_DAYS)
     rows: List[Ticket] = []
@@ -404,6 +441,8 @@ def generate_dataset(seed: int = SEED) -> List[Ticket]:
 
 
 def validate_dataset(rows: List[Ticket]) -> None:
+    """Enforce the public data contract before writing the CSV."""
+
     if not rows:
         raise ValueError("Generated dataset is empty.")
 
@@ -450,6 +489,8 @@ def validate_dataset(rows: List[Ticket]) -> None:
 
 
 def write_csv(rows: List[Ticket], output_path: Path = OUTPUT_CSV) -> None:
+    """Write validated ticket rows to the configured output CSV."""
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=[field.name for field in fields(Ticket)])
