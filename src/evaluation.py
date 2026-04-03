@@ -73,8 +73,7 @@ def empty_metric_section() -> dict[str, Any]:
         "overdue_first_response_count": 0,
         "overdue_resolution_count": 0,
         "by_priority": {
-            priority: empty_priority_tardiness_metrics()
-            for priority in PRIORITY_BUCKETS
+            priority: empty_priority_tardiness_metrics() for priority in PRIORITY_BUCKETS
         },
     }
 

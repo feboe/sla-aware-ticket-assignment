@@ -4,16 +4,16 @@
   "horizon_start_ts": "2026-03-02 10:00:00",
   "horizon_end_ts": "2026-03-02 16:00:00",
   "total_tickets": 32,
-  "scheduled_tickets": 29,
-  "tickets_in_backlog": 3,
+  "scheduled_tickets": 28,
+  "tickets_in_backlog": 4,
   "total_first_response_tardiness_min": 184.43,
   "total_resolution_tardiness_min": 0.0,
   "solver_status": "OPTIMAL",
   "objective_value": 2735.0,
-  "solve_time_sec": 0.9507,
+  "solve_time_sec": 0.7352,
   "scheduled": {
-    "ticket_count": 29,
-    "effort_min": 1500,
+    "ticket_count": 28,
+    "effort_min": 1425,
     "first_response_tardiness_min": 184.43,
     "resolution_tardiness_min": 0.0,
     "overdue_first_response_count": 6,
@@ -44,8 +44,8 @@
         "overdue_resolution_count": 0
       },
       "P4": {
-        "ticket_count": 4,
-        "effort_min": 150,
+        "ticket_count": 3,
+        "effort_min": 75,
         "first_response_tardiness_min": 0.0,
         "resolution_tardiness_min": 0.0,
         "overdue_first_response_count": 0,
@@ -54,8 +54,8 @@
     }
   },
   "backlog": {
-    "ticket_count": 3,
-    "effort_min": 120,
+    "ticket_count": 4,
+    "effort_min": 195,
     "first_response_tardiness_min": 0.0,
     "resolution_tardiness_min": 0.0,
     "overdue_first_response_count": 0,
@@ -86,8 +86,8 @@
         "overdue_resolution_count": 0
       },
       "P4": {
-        "ticket_count": 3,
-        "effort_min": 120,
+        "ticket_count": 4,
+        "effort_min": 195,
         "first_response_tardiness_min": 0.0,
         "resolution_tardiness_min": 0.0,
         "overdue_first_response_count": 0,
@@ -97,19 +97,19 @@
   },
   "agent_utilization": {
     "GEN-01": {
-      "workload_minutes": 270,
+      "workload_minutes": 165,
       "capacity_minutes": 360,
-      "utilization": 0.75
+      "utilization": 0.4583
     },
     "GEN-02": {
-      "workload_minutes": 105,
-      "capacity_minutes": 360,
-      "utilization": 0.2917
-    },
-    "GEN-03": {
       "workload_minutes": 120,
       "capacity_minutes": 360,
       "utilization": 0.3333
+    },
+    "GEN-03": {
+      "workload_minutes": 105,
+      "capacity_minutes": 360,
+      "utilization": 0.2917
     },
     "INT-01": {
       "workload_minutes": 315,
@@ -122,14 +122,14 @@
       "utilization": 0.875
     },
     "PS-01": {
-      "workload_minutes": 165,
+      "workload_minutes": 90,
       "capacity_minutes": 360,
-      "utilization": 0.4583
+      "utilization": 0.25
     },
     "PS-02": {
-      "workload_minutes": 120,
+      "workload_minutes": 225,
       "capacity_minutes": 360,
-      "utilization": 0.3333
+      "utilization": 0.625
     },
     "SIC-01": {
       "workload_minutes": 90,

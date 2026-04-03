@@ -1,0 +1,137 @@
+{
+  "replay_business_days": 5,
+  "slot_minutes": 15,
+  "horizon_start_ts": "2026-03-02 08:00:00",
+  "horizon_end_ts": "2026-03-06 16:00:00",
+  "total_tickets": 511,
+  "scheduled_tickets": 417,
+  "tickets_in_backlog": 94,
+  "total_first_response_tardiness_min": 213196.1,
+  "total_resolution_tardiness_min": 7137.94,
+  "scheduled": {
+    "ticket_count": 417,
+    "effort_min": 18750,
+    "first_response_tardiness_min": 203275.23,
+    "resolution_tardiness_min": 7094.77,
+    "overdue_first_response_count": 305,
+    "overdue_resolution_count": 15,
+    "by_priority": {
+      "P1": {
+        "ticket_count": 20,
+        "effort_min": 1530,
+        "first_response_tardiness_min": 17400.56,
+        "resolution_tardiness_min": 7094.77,
+        "overdue_first_response_count": 20,
+        "overdue_resolution_count": 15
+      },
+      "P2": {
+        "ticket_count": 83,
+        "effort_min": 4335,
+        "first_response_tardiness_min": 48531.84,
+        "resolution_tardiness_min": 0.0,
+        "overdue_first_response_count": 75,
+        "overdue_resolution_count": 0
+      },
+      "P3": {
+        "ticket_count": 214,
+        "effort_min": 9330,
+        "first_response_tardiness_min": 105297.83,
+        "resolution_tardiness_min": 0.0,
+        "overdue_first_response_count": 155,
+        "overdue_resolution_count": 0
+      },
+      "P4": {
+        "ticket_count": 100,
+        "effort_min": 3555,
+        "first_response_tardiness_min": 32045.0,
+        "resolution_tardiness_min": 0.0,
+        "overdue_first_response_count": 55,
+        "overdue_resolution_count": 0
+      }
+    }
+  },
+  "backlog": {
+    "ticket_count": 94,
+    "effort_min": 4065,
+    "first_response_tardiness_min": 9920.87,
+    "resolution_tardiness_min": 43.17,
+    "overdue_first_response_count": 56,
+    "overdue_resolution_count": 3,
+    "by_priority": {
+      "P1": {
+        "ticket_count": 4,
+        "effort_min": 315,
+        "first_response_tardiness_min": 878.62,
+        "resolution_tardiness_min": 43.17,
+        "overdue_first_response_count": 4,
+        "overdue_resolution_count": 3
+      },
+      "P2": {
+        "ticket_count": 10,
+        "effort_min": 450,
+        "first_response_tardiness_min": 1566.85,
+        "resolution_tardiness_min": 0.0,
+        "overdue_first_response_count": 9,
+        "overdue_resolution_count": 0
+      },
+      "P3": {
+        "ticket_count": 39,
+        "effort_min": 1590,
+        "first_response_tardiness_min": 3045.4,
+        "resolution_tardiness_min": 0.0,
+        "overdue_first_response_count": 31,
+        "overdue_resolution_count": 0
+      },
+      "P4": {
+        "ticket_count": 41,
+        "effort_min": 1710,
+        "first_response_tardiness_min": 4430.0,
+        "resolution_tardiness_min": 0.0,
+        "overdue_first_response_count": 12,
+        "overdue_resolution_count": 0
+      }
+    }
+  },
+  "agent_utilization": {
+    "GEN-01": {
+      "workload_minutes": 2385,
+      "capacity_minutes": 2400,
+      "utilization": 0.9938
+    },
+    "GEN-02": {
+      "workload_minutes": 2370,
+      "capacity_minutes": 2400,
+      "utilization": 0.9875
+    },
+    "GEN-03": {
+      "workload_minutes": 2370,
+      "capacity_minutes": 2400,
+      "utilization": 0.9875
+    },
+    "INT-01": {
+      "workload_minutes": 2310,
+      "capacity_minutes": 2400,
+      "utilization": 0.9625
+    },
+    "INT-02": {
+      "workload_minutes": 2295,
+      "capacity_minutes": 2400,
+      "utilization": 0.9563
+    },
+    "PS-01": {
+      "workload_minutes": 2370,
+      "capacity_minutes": 2400,
+      "utilization": 0.9875
+    },
+    "PS-02": {
+      "workload_minutes": 2340,
+      "capacity_minutes": 2400,
+      "utilization": 0.975
+    },
+    "SIC-01": {
+      "workload_minutes": 2310,
+      "capacity_minutes": 2400,
+      "utilization": 0.9625
+    }
+  }
+}
