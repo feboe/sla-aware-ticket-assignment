@@ -9,9 +9,13 @@ import unittest
 from datetime import datetime, time, timedelta
 from pathlib import Path
 
+import src.evaluation as evaluation
+import src.greedy_baseline as greedy_baseline
+import src.preprocessing as preprocessing
 from src.greedy_baseline import (
     AgentRecord,
     SCHEDULE_FIELDNAMES,
+    ScheduleEntry,
     SLOT_MINUTES,
     TicketRecord,
     ceil_to_slot,
@@ -48,6 +52,39 @@ class TestGreedyBaseline(unittest.TestCase):
             [entry.to_row() for entry in second_run.schedule],
         )
         self.assertEqual(self.metrics, second_run.metrics)
+
+    def test_shared_symbols_are_reexported_from_greedy_module(self) -> None:
+        self.assertIs(greedy_baseline.TicketRecord, preprocessing.TicketRecord)
+        self.assertIs(greedy_baseline.AgentRecord, preprocessing.AgentRecord)
+        self.assertIs(greedy_baseline.ScheduleEntry, evaluation.ScheduleEntry)
+        self.assertIs(greedy_baseline.ceil_to_slot, preprocessing.ceil_to_slot)
+        self.assertIs(greedy_baseline.load_tickets, preprocessing.load_tickets)
+        self.assertIs(greedy_baseline.load_agents, preprocessing.load_agents)
+        self.assertIs(greedy_baseline.tardiness_minutes, evaluation.tardiness_minutes)
+        self.assertEqual(greedy_baseline.SLOT_MINUTES, preprocessing.SLOT_MINUTES)
+        self.assertEqual(
+            greedy_baseline.SCHEDULE_FIELDNAMES, evaluation.SCHEDULE_FIELDNAMES
+        )
+
+        entry = ScheduleEntry(
+            ticket_id="TKT-01",
+            status="scheduled",
+            agent_id="AG-01",
+            start_ts=datetime(2026, 3, 2, 8, 0, 0),
+            completion_ts=datetime(2026, 3, 2, 8, 15, 0),
+            arrival_ts=datetime(2026, 3, 2, 7, 55, 0),
+            queue="Product Support",
+            priority="P2",
+            language="EN",
+            duration_slots=1,
+            first_response_due_ts=datetime(2026, 3, 2, 8, 5, 0),
+            resolution_due_ts=datetime(2026, 3, 2, 9, 0, 0),
+            first_response_tardiness_min=0.0,
+            resolution_tardiness_min=0.0,
+        )
+        self.assertEqual(
+            entry.to_row()["start_ts"], "2026-03-02 08:00:00"
+        )
 
     def test_schedule_covers_all_tickets(self) -> None:
         self.assertEqual(len(self.schedule), len(self.tickets))

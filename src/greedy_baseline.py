@@ -1,116 +1,47 @@
 """Greedy baseline for the synthetic ticket-assignment problem.
 
-This module implements a simple online dispatch policy that replays the synthetic support
-environment in 15-minute slots. Trade-Offs are the following: tickets may only start
-"now", there is no look-ahead, and hard feasibility is limited to queue, language, and
-priority scope.
+This module keeps the online dispatch policy only. Shared preprocessing, schedule
+serialization, and metric helpers live in dedicated modules so the baseline and
+the OR model can both depend on the same source of truth.
 """
 
 from __future__ import annotations
 
 import csv
 import json
-import math
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from scripts.generate_ticket_assignment_data import TIMESTAMP_FORMAT
+from src.evaluation import (
+    SCHEDULE_FIELDNAMES,
+    ScheduleEntry,
+    accumulate_metric_section,
+    empty_metric_section,
+    finalize_metric_section,
+    format_metric_value,
+    format_timestamp,
+    tardiness_minutes,
+)
+from src.preprocessing import (
+    AgentRecord,
+    SLOT_MINUTES,
+    TicketRecord,
+    business_days_inclusive,
+    ceil_to_slot,
+    combine_date_and_time,
+    day_slot_starts,
+    is_agent_feasible,
+    load_agents,
+    load_tickets,
+    parse_pipe_set,
+    parse_timestamp,
+    round_effort_to_slots,
+)
 
-SLOT_MINUTES = 15
 PRIORITY_RANK = {"P1": 0, "P2": 1, "P3": 2, "P4": 3}
-SCHEDULE_FIELDNAMES = [
-    "ticket_id",
-    "status",
-    "agent_id",
-    "start_ts",
-    "completion_ts",
-    "arrival_ts",
-    "queue",
-    "priority",
-    "language",
-    "duration_slots",
-    "first_response_due_ts",
-    "resolution_due_ts",
-    "first_response_tardiness_min",
-    "resolution_tardiness_min",
-]
-
-
-@dataclass(frozen=True)
-class TicketRecord:
-    """Demand-side ticket data after timestamp parsing and slot discretization."""
-
-    ticket_id: str
-    arrival_ts: datetime
-    release_ts: datetime
-    queue: str
-    priority: str
-    language: str
-    estimated_effort_min: int
-    duration_slots: int
-    first_response_due_ts: datetime
-    resolution_due_ts: datetime
-
-
-@dataclass(frozen=True)
-class AgentRecord:
-    """Supply-side agent capabilities used by the greedy dispatcher."""
-
-    agent_id: str
-    queue_permissions: frozenset[str]
-    languages: frozenset[str]
-    priority_scope: frozenset[str]
-    shift_start: time
-    shift_end: time
-    capacity_min_per_day: int
-    scarce_resource: bool
-
-
-@dataclass(frozen=True)
-class ScheduleEntry:
-    """Final schedule row for one ticket, either scheduled or left in backlog."""
-
-    ticket_id: str
-    status: str
-    agent_id: str
-    start_ts: datetime | None
-    completion_ts: datetime | None
-    arrival_ts: datetime
-    queue: str
-    priority: str
-    language: str
-    duration_slots: int
-    first_response_due_ts: datetime
-    resolution_due_ts: datetime
-    first_response_tardiness_min: float | None
-    resolution_tardiness_min: float | None
-
-    def to_row(self) -> dict[str, str]:
-        """Convert the schedule entry into a CSV-ready string dictionary."""
-
-        return {
-            "ticket_id": self.ticket_id,
-            "status": self.status,
-            "agent_id": self.agent_id,
-            "start_ts": format_timestamp(self.start_ts),
-            "completion_ts": format_timestamp(self.completion_ts),
-            "arrival_ts": format_timestamp(self.arrival_ts),
-            "queue": self.queue,
-            "priority": self.priority,
-            "language": self.language,
-            "duration_slots": str(self.duration_slots),
-            "first_response_due_ts": format_timestamp(self.first_response_due_ts),
-            "resolution_due_ts": format_timestamp(self.resolution_due_ts),
-            "first_response_tardiness_min": format_metric_value(
-                self.first_response_tardiness_min
-            ),
-            "resolution_tardiness_min": format_metric_value(
-                self.resolution_tardiness_min
-            ),
-        }
 
 
 @dataclass(frozen=True)
@@ -119,222 +50,6 @@ class BaselineResult:
 
     schedule: list[ScheduleEntry]
     metrics: dict[str, Any]
-
-
-def parse_timestamp(value: str) -> datetime:
-    """Parse timestamps using the shared dataset format."""
-
-    return datetime.strptime(value, TIMESTAMP_FORMAT)
-
-
-def format_timestamp(value: datetime | None) -> str:
-    """Serialize datetimes back into the shared dataset format."""
-
-    if value is None:
-        return ""
-    return value.strftime(TIMESTAMP_FORMAT)
-
-
-def format_metric_value(value: float | None) -> str:
-    """Format numeric metrics for CSV output while preserving empty backlog rows."""
-
-    if value is None:
-        return ""
-    return f"{value:.2f}"
-
-
-def parse_pipe_set(value: str) -> frozenset[str]:
-    """Parse pipe-delimited capability fields from the input CSVs."""
-
-    return frozenset(part for part in value.split("|") if part)
-
-
-def ceil_to_slot(ts: datetime) -> datetime:
-    """Round a timestamp up to the next 15-minute decision slot."""
-
-    slot_floor = ts.replace(
-        minute=(ts.minute // SLOT_MINUTES) * SLOT_MINUTES,
-        second=0,
-        microsecond=0,
-    )
-    if ts == slot_floor:
-        return slot_floor
-    return slot_floor + timedelta(minutes=SLOT_MINUTES)
-
-
-def round_effort_to_slots(estimated_effort_min: int) -> int:
-    """Convert effort minutes into a non-zero number of 15-minute slots."""
-
-    return max(1, math.ceil(estimated_effort_min / SLOT_MINUTES))
-
-
-def tardiness_minutes(actual_ts: datetime, due_ts: datetime) -> float:
-    """Return positive lateness in minutes and clip early completions to zero."""
-
-    return round(max(0.0, (actual_ts - due_ts).total_seconds() / 60.0), 2)
-
-
-def empty_priority_tardiness_metrics() -> dict[str, float | int]:
-    """Build one empty backlog-metric bucket for a single priority class."""
-
-    return {
-        "ticket_count": 0,
-        "effort_min": 0,
-        "first_response_tardiness_min": 0.0,
-        "resolution_tardiness_min": 0.0,
-        "overdue_first_response_count": 0,
-        "overdue_resolution_count": 0,
-    }
-
-
-def empty_metric_section() -> dict[str, Any]:
-    """Build one empty metric section shared by scheduled and backlog views."""
-
-    return {
-        "ticket_count": 0,
-        "effort_min": 0,
-        "first_response_tardiness_min": 0.0,
-        "resolution_tardiness_min": 0.0,
-        "overdue_first_response_count": 0,
-        "overdue_resolution_count": 0,
-        "by_priority": {
-            priority: empty_priority_tardiness_metrics() for priority in PRIORITY_RANK
-        },
-    }
-
-
-def accumulate_metric_section(
-    section: dict[str, Any],
-    priority: str,
-    effort_min: int,
-    first_response_tardiness: float,
-    resolution_tardiness: float,
-) -> None:
-    """Accumulate one ticket's contribution into a metric section."""
-
-    priority_bucket = section["by_priority"][priority]
-
-    section["ticket_count"] += 1
-    section["effort_min"] += effort_min
-    section["first_response_tardiness_min"] += first_response_tardiness
-    section["resolution_tardiness_min"] += resolution_tardiness
-    priority_bucket["ticket_count"] += 1
-    priority_bucket["effort_min"] += effort_min
-    priority_bucket["first_response_tardiness_min"] += first_response_tardiness
-    priority_bucket["resolution_tardiness_min"] += resolution_tardiness
-
-    if first_response_tardiness > 0:
-        section["overdue_first_response_count"] += 1
-        priority_bucket["overdue_first_response_count"] += 1
-    if resolution_tardiness > 0:
-        section["overdue_resolution_count"] += 1
-        priority_bucket["overdue_resolution_count"] += 1
-
-
-def finalize_metric_section(section: dict[str, Any]) -> dict[str, Any]:
-    """Round float values while keeping the shared metric schema stable."""
-
-    return {
-        "ticket_count": section["ticket_count"],
-        "effort_min": section["effort_min"],
-        "first_response_tardiness_min": round(section["first_response_tardiness_min"], 2),
-        "resolution_tardiness_min": round(section["resolution_tardiness_min"], 2),
-        "overdue_first_response_count": section["overdue_first_response_count"],
-        "overdue_resolution_count": section["overdue_resolution_count"],
-        "by_priority": {
-            priority: {
-                "ticket_count": values["ticket_count"],
-                "effort_min": values["effort_min"],
-                "first_response_tardiness_min": round(
-                    values["first_response_tardiness_min"], 2
-                ),
-                "resolution_tardiness_min": round(values["resolution_tardiness_min"], 2),
-                "overdue_first_response_count": values["overdue_first_response_count"],
-                "overdue_resolution_count": values["overdue_resolution_count"],
-            }
-            for priority, values in section["by_priority"].items()
-        },
-    }
-
-
-def combine_date_and_time(day: date, value: time) -> datetime:
-    """Create a datetime for a given business day and clock time."""
-
-    return datetime.combine(day, value)
-
-
-def business_days_inclusive(start_day: date, end_day: date) -> list[date]:
-    """List weekdays in the closed interval from start_day to end_day."""
-
-    days: list[date] = []
-    current = start_day
-    while current <= end_day:
-        if current.weekday() < 5:
-            days.append(current)
-        current += timedelta(days=1)
-    return days
-
-
-def day_slot_starts(
-    day: date, earliest_shift_start: time, latest_shift_end: time
-) -> list[datetime]:
-    """Enumerate 15-minute slot starts across the active business window."""
-
-    slot_starts: list[datetime] = []
-    current = combine_date_and_time(day, earliest_shift_start)
-    day_end = combine_date_and_time(day, latest_shift_end)
-    while current < day_end:
-        slot_starts.append(current)
-        current += timedelta(minutes=SLOT_MINUTES)
-    return slot_starts
-
-
-def load_tickets(ticket_csv_path: str | Path) -> list[TicketRecord]:
-    """Load the ticket CSV and derive release times and slot durations."""
-
-    path = Path(ticket_csv_path)
-    tickets: list[TicketRecord] = []
-    with path.open(newline="", encoding="utf-8") as handle:
-        for row in csv.DictReader(handle):
-            arrival_ts = parse_timestamp(row["arrival_ts"])
-            estimated_effort_min = int(row["estimated_effort_min"])
-            tickets.append(
-                TicketRecord(
-                    ticket_id=row["ticket_id"],
-                    arrival_ts=arrival_ts,
-                    release_ts=ceil_to_slot(arrival_ts),
-                    queue=row["queue"],
-                    priority=row["priority"],
-                    language=row["language"],
-                    estimated_effort_min=estimated_effort_min,
-                    duration_slots=round_effort_to_slots(estimated_effort_min),
-                    first_response_due_ts=parse_timestamp(row["first_response_due_ts"]),
-                    resolution_due_ts=parse_timestamp(row["resolution_due_ts"]),
-                )
-            )
-    return sorted(tickets, key=lambda ticket: (ticket.arrival_ts, ticket.ticket_id))
-
-
-def load_agents(agent_csv_path: str | Path) -> list[AgentRecord]:
-    """Load the fixed agent roster and parse capability sets."""
-
-    path = Path(agent_csv_path)
-    agents: list[AgentRecord] = []
-    with path.open(newline="", encoding="utf-8") as handle:
-        for row in csv.DictReader(handle):
-            agents.append(
-                AgentRecord(
-                    agent_id=row["agent_id"],
-                    queue_permissions=parse_pipe_set(row["queue_permissions"]),
-                    languages=parse_pipe_set(row["languages"]),
-                    priority_scope=parse_pipe_set(row["priority_scope"]),
-                    shift_start=datetime.strptime(row["shift_start"], "%H:%M").time(),
-                    shift_end=datetime.strptime(row["shift_end"], "%H:%M").time(),
-                    capacity_min_per_day=int(row["capacity_min_per_day"]),
-                    scarce_resource=row["scarce_resource"] == "1",
-                )
-            )
-    return sorted(agents, key=lambda agent: agent.agent_id)
 
 
 def ticket_sort_key(ticket: TicketRecord) -> tuple[Any, ...]:
@@ -346,16 +61,6 @@ def ticket_sort_key(ticket: TicketRecord) -> tuple[Any, ...]:
         ticket.resolution_due_ts,
         ticket.arrival_ts,
         ticket.ticket_id,
-    )
-
-
-def is_agent_feasible(ticket: TicketRecord, agent: AgentRecord) -> bool:
-    """Check the hard v1 feasibility rules for one ticket-agent pair."""
-
-    return (
-        ticket.queue in agent.queue_permissions
-        and ticket.language in agent.languages
-        and ticket.priority in agent.priority_scope
     )
 
 

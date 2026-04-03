@@ -2,8 +2,8 @@
 
 This module keeps the first exact optimization implementation deliberately small:
 it solves a single decision timestamp over the remaining slots of that workday.
-The model stays close to the written formulation and reuses the same parsing,
-slotting, and reporting helpers as the greedy baseline.
+The model stays close to the written formulation and reuses the shared
+preprocessing and evaluation helpers.
 """
 
 from __future__ import annotations
@@ -18,22 +18,24 @@ from typing import Any
 
 from ortools.sat.python import cp_model
 
-from src.greedy_baseline import (
-    AgentRecord,
+from src.evaluation import (
     SCHEDULE_FIELDNAMES,
-    SLOT_MINUTES,
     ScheduleEntry,
-    TicketRecord,
     accumulate_metric_section,
-    ceil_to_slot,
-    combine_date_and_time,
     empty_metric_section,
     finalize_metric_section,
     format_timestamp,
+    tardiness_minutes,
+)
+from src.preprocessing import (
+    AgentRecord,
+    SLOT_MINUTES,
+    TicketRecord,
+    ceil_to_slot,
+    combine_date_and_time,
     is_agent_feasible,
     load_agents,
     load_tickets,
-    tardiness_minutes,
 )
 
 FIRST_RESPONSE_WEIGHTS = {"P1": 1000, "P2": 200, "P3": 40, "P4": 10}

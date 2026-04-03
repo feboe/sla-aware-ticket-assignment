@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import csv
 import json
 import tempfile
@@ -72,6 +73,16 @@ class TestOrModel(unittest.TestCase):
                 "scarce_resource": "0",
             }
         ]
+
+    def test_or_model_imports_shared_helpers_directly(self) -> None:
+        source = Path("src/or_model.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        import_from_modules = {
+            node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+        }
+        self.assertNotIn("src.greedy_baseline", import_from_modules)
+        self.assertIn("src.preprocessing", import_from_modules)
+        self.assertIn("src.evaluation", import_from_modules)
 
     def test_prepare_instance_rounds_filters_and_limits_starts(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
