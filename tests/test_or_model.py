@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 from src.greedy_baseline import SCHEDULE_FIELDNAMES
+from src import or_model
 from src.or_model import (
     extract_or_schedule,
     prepare_or_instance,
@@ -18,6 +19,9 @@ from src.or_model import (
     solve_cp_sat_instance,
     write_or_outputs,
 )
+from src.or_preparation import OrInstance
+from src.or_reporting import OrResult
+from src.or_solver import OrModelVariables, OrSolveArtifacts
 
 TICKET_FIELDNAMES = [
     "ticket_id",
@@ -81,8 +85,20 @@ class TestOrModel(unittest.TestCase):
             node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
         }
         self.assertNotIn("src.greedy_baseline", import_from_modules)
-        self.assertIn("src.preprocessing", import_from_modules)
-        self.assertIn("src.evaluation", import_from_modules)
+        self.assertIn("src.or_preparation", import_from_modules)
+        self.assertIn("src.or_solver", import_from_modules)
+        self.assertIn("src.or_reporting", import_from_modules)
+
+    def test_or_model_reexports_public_one_run_api(self) -> None:
+        self.assertIs(or_model.OrInstance, OrInstance)
+        self.assertIs(or_model.OrModelVariables, OrModelVariables)
+        self.assertIs(or_model.OrSolveArtifacts, OrSolveArtifacts)
+        self.assertIs(or_model.OrResult, OrResult)
+        self.assertTrue(callable(or_model.prepare_or_instance))
+        self.assertTrue(callable(or_model.solve_cp_sat_instance))
+        self.assertTrue(callable(or_model.extract_or_schedule))
+        self.assertTrue(callable(or_model.write_or_outputs))
+        self.assertTrue(callable(or_model.run_or_model_from_csv))
 
     def test_prepare_instance_rounds_filters_and_limits_starts(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
