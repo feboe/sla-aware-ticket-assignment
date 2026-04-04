@@ -1,4 +1,4 @@
-"""Preparation helpers for one-run CP-SAT ticket-assignment instances."""
+"""Preparation helpers for current-slot OR scheduler instances."""
 
 from __future__ import annotations
 
@@ -19,17 +19,15 @@ from src.preprocessing import (
 
 
 @dataclass(frozen=True)
-class OrInstance:
-    """One optimization instance for a single decision timestamp."""
+class OrSchedulerInstance:
+    """One current-slot optimization instance for the OR scheduler."""
 
     requested_decision_ts: datetime
-    horizon_start_ts: datetime
-    horizon_end_ts: datetime
-    slot_starts: tuple[datetime, ...]
+    decision_ts: datetime
+    next_decision_ts: datetime
     tickets: tuple[TicketRecord, ...]
     agents: tuple[AgentRecord, ...]
     feasible_agent_ids: dict[str, tuple[str, ...]]
-    allowed_start_indices: dict[tuple[str, str], tuple[int, ...]]
     remaining_capacity_minutes: dict[str, int]
 
 
@@ -41,24 +39,29 @@ def parse_decision_timestamp(value: str | datetime) -> datetime:
     return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
 
 
-def build_slot_starts(
-    horizon_start_ts: datetime, horizon_end_ts: datetime
-) -> tuple[datetime, ...]:
-    """Enumerate all 15-minute slot starts within the one-run planning horizon."""
+def _next_business_day(day: date) -> date:
+    """Return the next weekday after ``day``."""
 
-    slot_starts: list[datetime] = []
-    current = horizon_start_ts
-    while current < horizon_end_ts:
-        slot_starts.append(current)
-        current += timedelta(minutes=SLOT_MINUTES)
-    return tuple(slot_starts)
+    next_day = day + timedelta(days=1)
+    while next_day.weekday() >= 5:
+        next_day += timedelta(days=1)
+    return next_day
 
 
-def slot_offset_floor(ts: datetime, origin: datetime) -> int:
-    """Convert a timestamp to a slot offset relative to origin using floor semantics."""
+def next_decision_timestamp(
+    decision_ts: datetime, agents: list[AgentRecord] | tuple[AgentRecord, ...]
+) -> datetime:
+    """Return the next rolling decision slot used for backlog cost evaluation."""
 
-    delta_minutes = (ts - origin).total_seconds() / 60.0
-    return int(delta_minutes // SLOT_MINUTES)
+    earliest_shift_start = min(agent.shift_start for agent in agents)
+    latest_shift_end = max(agent.shift_end for agent in agents)
+    next_slot = decision_ts + timedelta(minutes=SLOT_MINUTES)
+    day_end = combine_date_and_time(decision_ts.date(), latest_shift_end)
+    if next_slot < day_end:
+        return next_slot
+    return combine_date_and_time(
+        _next_business_day(decision_ts.date()), earliest_shift_start
+    )
 
 
 def _overlaps_committed_slots(
@@ -77,7 +80,37 @@ def _overlaps_committed_slots(
     return False
 
 
-def prepare_or_instance(
+def _can_start_ticket_now(
+    ticket: TicketRecord,
+    agent: AgentRecord,
+    decision_ts: datetime,
+    remaining_capacity_min: int,
+    occupied_slots: set[datetime],
+) -> bool:
+    """Check whether one ticket-agent pair can legally start in the current slot."""
+
+    if not is_agent_feasible(ticket, agent):
+        return False
+
+    processing_minutes = ticket.duration_slots * SLOT_MINUTES
+    if remaining_capacity_min < processing_minutes:
+        return False
+
+    shift_start_ts = combine_date_and_time(decision_ts.date(), agent.shift_start)
+    shift_end_ts = combine_date_and_time(decision_ts.date(), agent.shift_end)
+    if decision_ts < max(ticket.release_ts, shift_start_ts):
+        return False
+
+    completion_ts = decision_ts + timedelta(minutes=processing_minutes)
+    if completion_ts > shift_end_ts:
+        return False
+
+    return not _overlaps_committed_slots(
+        decision_ts, ticket.duration_slots, occupied_slots
+    )
+
+
+def prepare_or_scheduler_instance(
     ticket_csv_path: str | Path | None,
     agent_csv_path: str | Path | None,
     decision_ts: str | datetime,
@@ -87,44 +120,8 @@ def prepare_or_instance(
     candidate_tickets: list[TicketRecord] | None = None,
     occupied_slots_by_agent: dict[tuple[str, date], set[datetime]] | None = None,
     used_capacity_minutes: dict[tuple[str, date], int] | None = None,
-    current_slot_only_starts: bool = False,
-) -> OrInstance:
-    """Build one one-run OR instance for a specific decision timestamp.
-
-    Args:
-        ticket_csv_path: Path to the ticket CSV when parsed ticket records are not
-            provided through ``tickets_override``.
-        agent_csv_path: Path to the agent CSV when parsed agent records are not
-            provided through ``agents_override``.
-        decision_ts: Decision timestamp for the solve. Strings must use the
-            shared ``YYYY-MM-DD HH:MM:SS`` format and are rounded up to the next
-            15-minute slot.
-        tickets_override: Optional preloaded ticket records that bypass CSV
-            loading.
-        agents_override: Optional preloaded agent records that bypass CSV
-            loading.
-        candidate_tickets: Optional subset of tickets to consider before the
-            active-ticket filter is applied. This is mainly used by the rolling
-            controller to pass backlog plus newly released tickets.
-        occupied_slots_by_agent: Optional mapping of already committed occupied
-            15-minute slots by ``(agent_id, day)``. Candidate starts that would
-            overlap those slots are excluded.
-        used_capacity_minutes: Optional mapping of already consumed daily
-            capacity by ``(agent_id, day)``. Remaining agent capacity is reduced
-            accordingly.
-        current_slot_only_starts: When ``True``, keep the same horizon metadata
-            but restrict legal starts to the current slot only. This is used by
-            the rolling controller so future starts are reconsidered in later
-            solves instead of being preplanned here.
-
-    Returns:
-        An ``OrInstance`` containing the active tickets, ordered agents, legal
-        start indices, and remaining capacity values for the requested solve.
-
-    Raises:
-        ValueError: If no agents are available from either the CSV input or the
-            override records.
-    """
+) -> OrSchedulerInstance:
+    """Build one current-slot OR scheduler instance for a specific decision time."""
 
     requested_decision_ts = parse_decision_timestamp(decision_ts)
     rounded_decision_ts = ceil_to_slot(requested_decision_ts)
@@ -141,14 +138,10 @@ def prepare_or_instance(
     )
 
     if not agents_source:
-        raise ValueError("No agents provided to the OR model.")
+        raise ValueError("No agents provided to the OR scheduler.")
 
-    latest_shift_end = max(agent.shift_end for agent in agents_source)
-    horizon_end_ts = combine_date_and_time(rounded_decision_ts.date(), latest_shift_end)
-    slot_starts = build_slot_starts(rounded_decision_ts, horizon_end_ts)
-    candidate_source = (
-        candidate_tickets if candidate_tickets is not None else tickets_source
-    )
+    ordered_agents = tuple(sorted(agents_source, key=lambda agent: agent.agent_id))
+    candidate_source = candidate_tickets if candidate_tickets is not None else tickets_source
     active_tickets = tuple(
         sorted(
             (
@@ -159,24 +152,26 @@ def prepare_or_instance(
             key=lambda ticket: (ticket.arrival_ts, ticket.ticket_id),
         )
     )
-    ordered_agents = tuple(sorted(agents_source, key=lambda agent: agent.agent_id))
 
     occupied_slots_by_agent = occupied_slots_by_agent or {}
     used_capacity_minutes = used_capacity_minutes or {}
-    feasible_agent_ids: dict[str, tuple[str, ...]] = {}
-    allowed_start_indices: dict[tuple[str, str], tuple[int, ...]] = {}
     remaining_capacity_minutes: dict[str, int] = {}
+    feasible_agent_ids: dict[str, tuple[str, ...]] = {}
 
     for agent in ordered_agents:
         day_key = (agent.agent_id, rounded_decision_ts.date())
         shift_start_ts = combine_date_and_time(
             rounded_decision_ts.date(), agent.shift_start
         )
-        shift_end_ts = combine_date_and_time(rounded_decision_ts.date(), agent.shift_end)
+        shift_end_ts = combine_date_and_time(
+            rounded_decision_ts.date(), agent.shift_end
+        )
         remaining_shift_minutes = max(
             0,
             int(
-                (shift_end_ts - max(rounded_decision_ts, shift_start_ts)).total_seconds()
+                (
+                    shift_end_ts - max(rounded_decision_ts, shift_start_ts)
+                ).total_seconds()
                 / 60
             ),
         )
@@ -187,60 +182,27 @@ def prepare_or_instance(
         )
 
     for ticket in active_tickets:
-        feasible_agents = tuple(
-            agent.agent_id
-            for agent in ordered_agents
-            if is_agent_feasible(ticket, agent)
-            and remaining_capacity_minutes[agent.agent_id]
-            >= ticket.duration_slots * SLOT_MINUTES
-        )
-        feasible_agent_ids[ticket.ticket_id] = feasible_agents
-
+        feasible_agents = []
         for agent in ordered_agents:
-            key = (ticket.ticket_id, agent.agent_id)
-            if agent.agent_id not in feasible_agents:
-                allowed_start_indices[key] = ()
-                continue
-
-            shift_start_ts = combine_date_and_time(
-                rounded_decision_ts.date(), agent.shift_start
-            )
-            shift_end_ts = combine_date_and_time(
-                rounded_decision_ts.date(), agent.shift_end
-            )
-            earliest_start = max(rounded_decision_ts, ticket.release_ts, shift_start_ts)
             occupied_slots = occupied_slots_by_agent.get(
                 (agent.agent_id, rounded_decision_ts.date()), set()
             )
+            if _can_start_ticket_now(
+                ticket,
+                agent,
+                rounded_decision_ts,
+                remaining_capacity_minutes[agent.agent_id],
+                occupied_slots,
+            ):
+                feasible_agents.append(agent.agent_id)
+        feasible_agent_ids[ticket.ticket_id] = tuple(feasible_agents)
 
-            candidate_slot_starts = (
-                slot_starts[:1] if current_slot_only_starts else slot_starts
-            )
-            allowed_indices: list[int] = []
-            for start_index, slot_start in enumerate(candidate_slot_starts):
-                completion_ts = slot_start + timedelta(
-                    minutes=ticket.duration_slots * SLOT_MINUTES
-                )
-                if slot_start < earliest_start:
-                    continue
-                if completion_ts > shift_end_ts:
-                    continue
-                if _overlaps_committed_slots(
-                    slot_start, ticket.duration_slots, occupied_slots
-                ):
-                    continue
-                allowed_indices.append(start_index)
-
-            allowed_start_indices[key] = tuple(allowed_indices)
-
-    return OrInstance(
+    return OrSchedulerInstance(
         requested_decision_ts=requested_decision_ts,
-        horizon_start_ts=rounded_decision_ts,
-        horizon_end_ts=horizon_end_ts,
-        slot_starts=slot_starts,
+        decision_ts=rounded_decision_ts,
+        next_decision_ts=next_decision_timestamp(rounded_decision_ts, ordered_agents),
         tickets=active_tickets,
         agents=ordered_agents,
         feasible_agent_ids=feasible_agent_ids,
-        allowed_start_indices=allowed_start_indices,
         remaining_capacity_minutes=remaining_capacity_minutes,
     )

@@ -1,11 +1,11 @@
-"""Reporting helpers for one-run CP-SAT ticket-assignment results."""
+"""Reporting helpers for current-slot OR scheduler results."""
 
 from __future__ import annotations
 
 import csv
 import json
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -20,44 +20,38 @@ from src.evaluation import (
     format_timestamp,
     tardiness_minutes,
 )
-from src.or_preparation import OrInstance
-from src.or_solver import OrSolveArtifacts
-from src.preprocessing import SLOT_MINUTES
+from src.or_solver import OrSchedulerSolveArtifacts
+from src.preprocessing import AgentRecord, SLOT_MINUTES
 
 
 @dataclass(frozen=True)
-class OrResult:
-    """Container for the one-run OR schedule and aggregate metrics."""
+class OrSchedulerResult:
+    """Container for the scheduler replay outputs."""
 
     schedule: list[ScheduleEntry]
     metrics: dict[str, Any]
 
 
-def extract_or_schedule(artifacts: OrSolveArtifacts) -> list[ScheduleEntry]:
-    """Translate the selected CP-SAT decisions back into schedule rows."""
+def extract_or_scheduler_schedule(
+    artifacts: OrSchedulerSolveArtifacts,
+) -> list[ScheduleEntry]:
+    """Translate CP-SAT decisions back into current-slot schedule rows."""
 
     instance = artifacts.instance
     schedule: list[ScheduleEntry] = []
     has_solution = artifacts.status_code in (cp_model.OPTIMAL, cp_model.FEASIBLE)
 
     for ticket in instance.tickets:
-        chosen_assignment: tuple[str, int] | None = None
+        chosen_agent_id: str | None = None
         if has_solution:
-            for agent in instance.agents:
-                for start_index in instance.allowed_start_indices[
-                    (ticket.ticket_id, agent.agent_id)
-                ]:
-                    if artifacts.solver.Value(
-                        artifacts.variables.x[
-                            (ticket.ticket_id, agent.agent_id, start_index)
-                        ]
-                    ):
-                        chosen_assignment = (agent.agent_id, start_index)
-                        break
-                if chosen_assignment is not None:
+            for agent_id in instance.feasible_agent_ids[ticket.ticket_id]:
+                if artifacts.solver.Value(
+                    artifacts.variables.assign[(ticket.ticket_id, agent_id)]
+                ):
+                    chosen_agent_id = agent_id
                     break
 
-        if chosen_assignment is None:
+        if chosen_agent_id is None:
             schedule.append(
                 ScheduleEntry(
                     ticket_id=ticket.ticket_id,
@@ -78,14 +72,13 @@ def extract_or_schedule(artifacts: OrSolveArtifacts) -> list[ScheduleEntry]:
             )
             continue
 
-        agent_id, start_index = chosen_assignment
-        start_ts = instance.slot_starts[start_index]
+        start_ts = instance.decision_ts
         completion_ts = start_ts + timedelta(minutes=ticket.duration_slots * SLOT_MINUTES)
         schedule.append(
             ScheduleEntry(
                 ticket_id=ticket.ticket_id,
                 status="scheduled",
-                agent_id=agent_id,
+                agent_id=chosen_agent_id,
                 start_ts=start_ts,
                 completion_ts=completion_ts,
                 arrival_ts=ticket.arrival_ts,
@@ -107,18 +100,18 @@ def extract_or_schedule(artifacts: OrSolveArtifacts) -> list[ScheduleEntry]:
     return schedule
 
 
-def build_or_metrics(
+def build_or_scheduler_metrics(
     schedule: list[ScheduleEntry],
-    instance: OrInstance,
-    solver_status: str,
-    objective_value: float | None,
-    solve_time_sec: float,
+    agents: list[AgentRecord],
+    replay_day_count: int,
+    workload_minutes_per_agent: dict[str, int],
+    horizon_start_ts: datetime,
+    final_horizon_end: datetime,
 ) -> dict[str, Any]:
-    """Aggregate the one-run schedule into overview and nested detail sections."""
+    """Aggregate the replay schedule into the shared output metric schema."""
 
     scheduled_metrics = empty_metric_section()
     backlog_metrics = empty_metric_section()
-    workload_minutes_per_agent = {agent.agent_id: 0 for agent in instance.agents}
 
     for entry in schedule:
         effort_min = entry.duration_slots * SLOT_MINUTES
@@ -130,38 +123,34 @@ def build_or_metrics(
                 entry.first_response_tardiness_min or 0.0,
                 entry.resolution_tardiness_min or 0.0,
             )
-            workload_minutes_per_agent[entry.agent_id] += effort_min
             continue
 
         accumulate_metric_section(
             backlog_metrics,
             entry.priority,
             effort_min,
-            tardiness_minutes(instance.horizon_end_ts, entry.first_response_due_ts),
-            tardiness_minutes(instance.horizon_end_ts, entry.resolution_due_ts),
+            tardiness_minutes(final_horizon_end, entry.first_response_due_ts),
+            tardiness_minutes(final_horizon_end, entry.resolution_due_ts),
         )
 
     scheduled_metrics = finalize_metric_section(scheduled_metrics)
     backlog_metrics = finalize_metric_section(backlog_metrics)
 
     agent_utilization: dict[str, dict[str, float | int]] = {}
-    for agent in instance.agents:
-        capacity_minutes = instance.remaining_capacity_minutes[agent.agent_id]
+    for agent in agents:
+        capacity_minutes = replay_day_count * agent.capacity_min_per_day
         workload_minutes = workload_minutes_per_agent[agent.agent_id]
-        utilization = 0.0
-        if capacity_minutes > 0:
-            utilization = round(workload_minutes / capacity_minutes, 4)
         agent_utilization[agent.agent_id] = {
             "workload_minutes": workload_minutes,
             "capacity_minutes": capacity_minutes,
-            "utilization": utilization,
+            "utilization": round(workload_minutes / capacity_minutes, 4),
         }
 
     return {
+        "replay_business_days": replay_day_count,
         "slot_minutes": SLOT_MINUTES,
-        "decision_ts": format_timestamp(instance.requested_decision_ts),
-        "horizon_start_ts": format_timestamp(instance.horizon_start_ts),
-        "horizon_end_ts": format_timestamp(instance.horizon_end_ts),
+        "horizon_start_ts": format_timestamp(horizon_start_ts),
+        "horizon_end_ts": format_timestamp(final_horizon_end),
         "total_tickets": len(schedule),
         "scheduled_tickets": scheduled_metrics["ticket_count"],
         "tickets_in_backlog": backlog_metrics["ticket_count"],
@@ -175,21 +164,18 @@ def build_or_metrics(
             + backlog_metrics["resolution_tardiness_min"],
             2,
         ),
-        "solver_status": solver_status,
-        "objective_value": None if objective_value is None else round(objective_value, 2),
-        "solve_time_sec": round(solve_time_sec, 4),
         "scheduled": scheduled_metrics,
         "backlog": backlog_metrics,
         "agent_utilization": agent_utilization,
     }
 
 
-def write_or_outputs(
-    result: OrResult,
+def write_or_scheduler_outputs(
+    result: OrSchedulerResult,
     schedule_output_path: str | Path,
     metrics_output_path: str | Path,
 ) -> None:
-    """Write the one-run OR schedule and metrics to disk."""
+    """Write the OR scheduler replay outputs to disk."""
 
     schedule_path = Path(schedule_output_path)
     metrics_path = Path(metrics_output_path)

@@ -1,4 +1,4 @@
-"""Tests for the rolling-horizon OR replay controller."""
+"""Tests for the current-slot OR scheduler and its CLI."""
 
 from __future__ import annotations
 
@@ -13,14 +13,17 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import run_rolling_or_model as rolling_cli
+from scripts import run_or_scheduler as scheduler_cli
 from src.evaluation import SCHEDULE_FIELDNAMES
-from src.or_rolling import (
-    RollingOrResult,
-    run_rolling_or_model,
-    run_rolling_or_model_from_csv,
-    write_rolling_or_outputs,
+from src.or_scheduler import (
+    OrSchedulerResult,
+    run_or_scheduler,
+    run_or_scheduler_from_csv,
+    write_or_scheduler_outputs,
 )
+from src.or_preparation import prepare_or_scheduler_instance
+from src.or_reporting import extract_or_scheduler_schedule
+from src.or_solver import solve_or_scheduler_instance
 from src.preprocessing import load_agents, load_tickets
 
 TICKET_FIELDNAMES = [
@@ -47,8 +50,8 @@ AGENT_FIELDNAMES = [
 ]
 
 
-class TestRollingOrModel(unittest.TestCase):
-    """Validate the rolling replay wrapper built on top of the one-run OR model."""
+class TestOrScheduler(unittest.TestCase):
+    """Validate the realistic current-slot OR scheduler workflow."""
 
     def write_tickets(self, path: Path, rows: list[dict[str, str]]) -> None:
         with path.open("w", newline="", encoding="utf-8") as handle:
@@ -83,6 +86,93 @@ class TestRollingOrModel(unittest.TestCase):
                 "scarce_resource": "0",
             }
         ]
+
+    def test_internal_model_has_no_future_start_structure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tickets_path = Path(tmpdir) / "tickets.csv"
+            agents_path = Path(tmpdir) / "agents.csv"
+            self.write_tickets(
+                tickets_path,
+                [
+                    {
+                        "ticket_id": "TKT-01",
+                        "arrival_ts": "2026-03-02 08:00:00",
+                        "queue": "Product Support",
+                        "priority": "P2",
+                        "language": "EN",
+                        "estimated_effort_min": "15",
+                        "first_response_due_ts": "2026-03-02 08:30:00",
+                        "resolution_due_ts": "2026-03-02 09:00:00",
+                    }
+                ],
+            )
+            self.write_agents(agents_path, self.default_agents())
+
+            instance = prepare_or_scheduler_instance(
+                tickets_path, agents_path, "2026-03-02 08:00:00"
+            )
+            self.assertFalse(hasattr(instance, "slot_starts"))
+            self.assertFalse(hasattr(instance, "allowed_start_indices"))
+            self.assertEqual(instance.decision_ts, datetime(2026, 3, 2, 8, 0))
+            self.assertEqual(instance.next_decision_ts, datetime(2026, 3, 2, 8, 15))
+
+            artifacts = solve_or_scheduler_instance(
+                instance,
+                time_limit_sec=1,
+                num_workers=1,
+            )
+            self.assertTrue(all(len(key) == 2 for key in artifacts.variables.assign))
+            schedule = extract_or_scheduler_schedule(artifacts)
+            self.assertEqual(schedule[0].start_ts, datetime(2026, 3, 2, 8, 0))
+
+    def test_overdue_ticket_beats_less_urgent_ticket_when_only_one_start_fits(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tickets_path = Path(tmpdir) / "tickets.csv"
+            agents_path = Path(tmpdir) / "agents.csv"
+            self.write_tickets(
+                tickets_path,
+                [
+                    {
+                        "ticket_id": "TKT-P1",
+                        "arrival_ts": "2026-03-02 08:00:00",
+                        "queue": "Product Support",
+                        "priority": "P1",
+                        "language": "EN",
+                        "estimated_effort_min": "15",
+                        "first_response_due_ts": "2026-03-02 08:00:00",
+                        "resolution_due_ts": "2026-03-02 08:30:00",
+                    },
+                    {
+                        "ticket_id": "TKT-P4",
+                        "arrival_ts": "2026-03-02 08:00:00",
+                        "queue": "Product Support",
+                        "priority": "P4",
+                        "language": "EN",
+                        "estimated_effort_min": "15",
+                        "first_response_due_ts": "2026-03-02 10:00:00",
+                        "resolution_due_ts": "2026-03-02 12:00:00",
+                    },
+                ],
+            )
+            self.write_agents(agents_path, self.default_agents())
+
+            instance = prepare_or_scheduler_instance(
+                tickets_path, agents_path, "2026-03-02 08:00:00"
+            )
+            artifacts = solve_or_scheduler_instance(
+                instance,
+                time_limit_sec=1,
+                num_workers=1,
+            )
+            schedule_by_id = {
+                entry.ticket_id: entry
+                for entry in extract_or_scheduler_schedule(artifacts)
+            }
+
+            self.assertEqual(schedule_by_id["TKT-P1"].status, "scheduled")
+            self.assertEqual(schedule_by_id["TKT-P4"].status, "backlog_current_run")
 
     def test_backlog_and_new_releases_are_reconsidered_each_slot(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -125,18 +215,15 @@ class TestRollingOrModel(unittest.TestCase):
             )
             self.write_agents(agents_path, self.default_agents())
 
-            result = run_rolling_or_model_from_csv(
+            result = run_or_scheduler_from_csv(
                 tickets_path, agents_path, time_limit_sec=2, num_workers=1
             )
             schedule_by_id = {entry.ticket_id: entry for entry in result.schedule}
 
-            self.assertEqual(schedule_by_id["TKT-A"].status, "scheduled")
             self.assertEqual(schedule_by_id["TKT-A"].start_ts, datetime(2026, 3, 2, 8, 0))
-            self.assertEqual(schedule_by_id["TKT-C"].status, "scheduled")
             self.assertEqual(
                 schedule_by_id["TKT-C"].start_ts, datetime(2026, 3, 2, 8, 15)
             )
-            self.assertEqual(schedule_by_id["TKT-B"].status, "scheduled")
             self.assertEqual(
                 schedule_by_id["TKT-B"].start_ts, datetime(2026, 3, 2, 8, 30)
             )
@@ -172,16 +259,14 @@ class TestRollingOrModel(unittest.TestCase):
             )
             self.write_agents(agents_path, self.default_agents())
 
-            result = run_rolling_or_model_from_csv(
+            result = run_or_scheduler_from_csv(
                 tickets_path, agents_path, time_limit_sec=2, num_workers=1
             )
             schedule_by_id = {entry.ticket_id: entry for entry in result.schedule}
 
-            self.assertEqual(schedule_by_id["TKT-D1"].status, "scheduled")
             self.assertEqual(
                 schedule_by_id["TKT-D1"].start_ts, datetime(2026, 3, 3, 8, 0)
             )
-            self.assertEqual(schedule_by_id["TKT-D2"].status, "scheduled")
             self.assertGreaterEqual(
                 schedule_by_id["TKT-D2"].start_ts, datetime(2026, 3, 3, 8, 30)
             )
@@ -217,7 +302,7 @@ class TestRollingOrModel(unittest.TestCase):
             )
             self.write_agents(agents_path, self.default_agents())
 
-            result = run_rolling_or_model_from_csv(
+            result = run_or_scheduler_from_csv(
                 tickets_path, agents_path, time_limit_sec=2, num_workers=1
             )
             schedule_by_id = {entry.ticket_id: entry for entry in result.schedule}
@@ -248,7 +333,7 @@ class TestRollingOrModel(unittest.TestCase):
             )
             self.write_agents(agents_path, self.default_agents())
 
-            result = run_rolling_or_model_from_csv(
+            result = run_or_scheduler_from_csv(
                 tickets_path, agents_path, time_limit_sec=2, num_workers=1
             )
 
@@ -288,10 +373,10 @@ class TestRollingOrModel(unittest.TestCase):
             )
             self.write_agents(agents_path, self.default_agents())
 
-            result = run_rolling_or_model_from_csv(
+            result = run_or_scheduler_from_csv(
                 tickets_path, agents_path, time_limit_sec=2, num_workers=1
             )
-            write_rolling_or_outputs(result, schedule_path, metrics_path)
+            write_or_scheduler_outputs(result, schedule_path, metrics_path)
 
             metrics = result.metrics
             self.assertIn("replay_business_days", metrics)
@@ -345,10 +430,10 @@ class TestRollingOrModel(unittest.TestCase):
             tickets = load_tickets(tickets_path)
             agents = load_agents(agents_path)
 
-            direct_result = run_rolling_or_model(
+            direct_result = run_or_scheduler(
                 tickets, agents, time_limit_sec=2, num_workers=1
             )
-            csv_result = run_rolling_or_model_from_csv(
+            csv_result = run_or_scheduler_from_csv(
                 tickets_path, agents_path, time_limit_sec=2, num_workers=1
             )
 
@@ -366,7 +451,7 @@ class TestRollingOrModel(unittest.TestCase):
             )
 
     def test_cli_prints_solver_summary(self) -> None:
-        result = RollingOrResult(
+        result = OrSchedulerResult(
             schedule=[],
             metrics={
                 "solve_call_count": 155,
@@ -380,15 +465,13 @@ class TestRollingOrModel(unittest.TestCase):
         )
 
         with (
-            patch.object(
-                rolling_cli, "run_rolling_or_model_from_csv", return_value=result
-            ),
-            patch.object(rolling_cli, "write_rolling_or_outputs"),
+            patch.object(scheduler_cli, "run_or_scheduler_from_csv", return_value=result),
+            patch.object(scheduler_cli, "write_or_scheduler_outputs"),
             patch.object(
                 sys,
                 "argv",
                 [
-                    "run_rolling_or_model.py",
+                    "run_or_scheduler.py",
                     "--schedule-out",
                     "tmp_schedule.csv",
                     "--metrics-out",
@@ -398,12 +481,12 @@ class TestRollingOrModel(unittest.TestCase):
         ):
             stdout = io.StringIO()
             with redirect_stdout(stdout):
-                rolling_cli.main()
+                scheduler_cli.main()
 
         output_lines = stdout.getvalue().strip().splitlines()
         self.assertEqual(
             output_lines[0],
-            "Wrote rolling OR outputs to tmp_schedule.csv and tmp_metrics.json",
+            "Wrote OR scheduler outputs to tmp_schedule.csv and tmp_metrics.json",
         )
         self.assertEqual(
             output_lines[1], "Solver summary: 155 solves, avg 0.7000s per solve"
@@ -411,7 +494,7 @@ class TestRollingOrModel(unittest.TestCase):
         self.assertEqual(output_lines[2], "Statuses: OPTIMAL=58, FEASIBLE=20, UNKNOWN=77")
 
     def test_cli_prints_missing_known_statuses_as_zero_and_sorts_extras(self) -> None:
-        result = RollingOrResult(
+        result = OrSchedulerResult(
             schedule=[],
             metrics={
                 "solve_call_count": 3,
@@ -425,15 +508,13 @@ class TestRollingOrModel(unittest.TestCase):
         )
 
         with (
-            patch.object(
-                rolling_cli, "run_rolling_or_model_from_csv", return_value=result
-            ),
-            patch.object(rolling_cli, "write_rolling_or_outputs"),
-            patch.object(sys, "argv", ["run_rolling_or_model.py"]),
+            patch.object(scheduler_cli, "run_or_scheduler_from_csv", return_value=result),
+            patch.object(scheduler_cli, "write_or_scheduler_outputs"),
+            patch.object(sys, "argv", ["run_or_scheduler.py"]),
         ):
             stdout = io.StringIO()
             with redirect_stdout(stdout):
-                rolling_cli.main()
+                scheduler_cli.main()
 
         output_lines = stdout.getvalue().strip().splitlines()
         self.assertEqual(

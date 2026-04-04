@@ -1,20 +1,20 @@
-"""Rolling-horizon replay wrapper around the one-run CP-SAT ticket-assignment model."""
+"""Rolling current-slot OR scheduler for the synthetic ticket-assignment problem."""
 
 from __future__ import annotations
 
-import csv
-import json
 from collections import Counter, defaultdict
-from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any
 
-from src.evaluation import SCHEDULE_FIELDNAMES, ScheduleEntry
-from src.greedy_baseline import build_metrics
-from src.or_preparation import prepare_or_instance
-from src.or_reporting import extract_or_schedule
-from src.or_solver import solve_cp_sat_instance
+from src.evaluation import ScheduleEntry
+from src.or_preparation import prepare_or_scheduler_instance
+from src.or_reporting import (
+    OrSchedulerResult,
+    build_or_scheduler_metrics,
+    extract_or_scheduler_schedule,
+    write_or_scheduler_outputs,
+)
+from src.or_solver import solve_or_scheduler_instance
 from src.preprocessing import (
     AgentRecord,
     SLOT_MINUTES,
@@ -26,15 +26,7 @@ from src.preprocessing import (
     load_tickets,
 )
 
-DEFAULT_ROLLING_TIME_LIMIT_SEC = 4.0
-
-
-@dataclass(frozen=True)
-class RollingOrResult:
-    """Replay-style schedule and metrics for the rolling OR benchmark."""
-
-    schedule: list[ScheduleEntry]
-    metrics: dict[str, Any]
+DEFAULT_OR_SCHEDULER_TIME_LIMIT_SEC = 1
 
 
 def _agent_can_start_now(
@@ -55,18 +47,18 @@ def _agent_can_start_now(
     return used_capacity_minutes[(agent.agent_id, day)] < agent.capacity_min_per_day
 
 
-def run_rolling_or_model(
+def run_or_scheduler(
     tickets: list[TicketRecord],
     agents: list[AgentRecord],
-    time_limit_sec: float = DEFAULT_ROLLING_TIME_LIMIT_SEC,
+    time_limit_sec: float = DEFAULT_OR_SCHEDULER_TIME_LIMIT_SEC,
     num_workers: int = 8,
-) -> RollingOrResult:
-    """Replay the full dataset and re-solve a one-run OR model every 15 minutes."""
+) -> OrSchedulerResult:
+    """Replay the full dataset with repeated current-slot OR scheduler solves."""
 
     if not tickets:
-        raise ValueError("No tickets provided to the rolling OR benchmark.")
+        raise ValueError("No tickets provided to the OR scheduler.")
     if not agents:
-        raise ValueError("No agents provided to the rolling OR benchmark.")
+        raise ValueError("No agents provided to the OR scheduler.")
 
     released_tickets = sorted(
         tickets,
@@ -120,7 +112,7 @@ def run_rolling_or_model(
             ):
                 continue
 
-            instance = prepare_or_instance(
+            instance = prepare_or_scheduler_instance(
                 None,
                 None,
                 current_slot,
@@ -129,20 +121,21 @@ def run_rolling_or_model(
                 candidate_tickets=list(open_tickets.values()),
                 occupied_slots_by_agent=occupied_slots_by_agent,
                 used_capacity_minutes=per_day_workload,
-                current_slot_only_starts=True,
             )
             if not instance.tickets:
                 continue
 
-            artifacts = solve_cp_sat_instance(
-                instance, time_limit_sec=time_limit_sec, num_workers=num_workers
+            artifacts = solve_or_scheduler_instance(
+                instance,
+                time_limit_sec=time_limit_sec,
+                num_workers=num_workers,
             )
             solve_call_count += 1
             total_solve_time_sec += artifacts.solve_time_sec
             solver_status_counts[artifacts.status_name] += 1
 
-            for entry in extract_or_schedule(artifacts):
-                if entry.status != "scheduled" or entry.start_ts != current_slot:
+            for entry in extract_or_scheduler_schedule(artifacts):
+                if entry.status != "scheduled":
                     continue
 
                 schedule_by_ticket[entry.ticket_id] = entry
@@ -186,7 +179,7 @@ def run_rolling_or_model(
         schedule_by_ticket[ticket.ticket_id]
         for ticket in sorted(tickets, key=lambda item: (item.arrival_ts, item.ticket_id))
     ]
-    metrics = build_metrics(
+    metrics = build_or_scheduler_metrics(
         ordered_schedule,
         agents,
         len(replay_days),
@@ -199,45 +192,31 @@ def run_rolling_or_model(
         round(total_solve_time_sec / solve_call_count, 4) if solve_call_count else 0.0
     )
     metrics["solver_status_counts"] = dict(sorted(solver_status_counts.items()))
-    return RollingOrResult(schedule=ordered_schedule, metrics=metrics)
+    return OrSchedulerResult(schedule=ordered_schedule, metrics=metrics)
 
 
-def write_rolling_or_outputs(
-    result: RollingOrResult,
-    schedule_output_path: str | Path,
-    metrics_output_path: str | Path,
-) -> None:
-    """Write the rolling OR replay outputs to disk."""
-
-    schedule_path = Path(schedule_output_path)
-    metrics_path = Path(metrics_output_path)
-    schedule_path.parent.mkdir(parents=True, exist_ok=True)
-    metrics_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with schedule_path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=SCHEDULE_FIELDNAMES)
-        writer.writeheader()
-        for entry in result.schedule:
-            writer.writerow(entry.to_row())
-
-    with metrics_path.open("w", encoding="utf-8") as handle:
-        json.dump(result.metrics, handle, indent=2)
-        handle.write("\n")
-
-
-def run_rolling_or_model_from_csv(
+def run_or_scheduler_from_csv(
     ticket_csv_path: str | Path,
     agent_csv_path: str | Path,
-    time_limit_sec: float = DEFAULT_ROLLING_TIME_LIMIT_SEC,
+    time_limit_sec: float = DEFAULT_OR_SCHEDULER_TIME_LIMIT_SEC,
     num_workers: int = 8,
-) -> RollingOrResult:
-    """Convenience wrapper for the rolling OR CLI and tests."""
+) -> OrSchedulerResult:
+    """Convenience wrapper for the OR scheduler CLI and tests."""
 
     tickets = load_tickets(ticket_csv_path)
     agents = load_agents(agent_csv_path)
-    return run_rolling_or_model(
+    return run_or_scheduler(
         tickets,
         agents,
         time_limit_sec=time_limit_sec,
         num_workers=num_workers,
     )
+
+
+__all__ = [
+    "DEFAULT_OR_SCHEDULER_TIME_LIMIT_SEC",
+    "OrSchedulerResult",
+    "run_or_scheduler",
+    "run_or_scheduler_from_csv",
+    "write_or_scheduler_outputs",
+]

@@ -1,4 +1,4 @@
-"""CLI entrypoint for running the rolling-horizon CP-SAT ticket-assignment benchmark."""
+"""CLI entrypoint for running the OR scheduler benchmark."""
 
 from __future__ import annotations
 
@@ -11,20 +11,20 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.or_rolling import (
-    DEFAULT_ROLLING_TIME_LIMIT_SEC,
-    run_rolling_or_model_from_csv,
-    write_rolling_or_outputs,
+from src.or_scheduler import (
+    DEFAULT_OR_SCHEDULER_TIME_LIMIT_SEC,
+    run_or_scheduler_from_csv,
+    write_or_scheduler_outputs,
 )
 
 KNOWN_SOLVER_STATUSES = ("OPTIMAL", "FEASIBLE", "UNKNOWN")
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build the command-line interface for the rolling OR replay."""
+    """Build the command-line interface for the OR scheduler replay."""
 
     parser = argparse.ArgumentParser(
-        description="Replay the dataset with a rolling CP-SAT ticket-assignment policy."
+        description="Replay the dataset with the current-slot OR scheduler."
     )
     parser.add_argument(
         "--tickets",
@@ -38,31 +38,31 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--schedule-out",
-        default="results/rolling_or_schedule.csv",
-        help="Path to the generated rolling OR schedule CSV.",
+        default="results/or_scheduler_schedule.csv",
+        help="Path to the generated OR scheduler schedule CSV.",
     )
     parser.add_argument(
         "--metrics-out",
-        default="results/rolling_or_metrics.json",
-        help="Path to the generated rolling OR metrics JSON.",
+        default="results/or_scheduler_metrics.json",
+        help="Path to the generated OR scheduler metrics JSON.",
     )
     parser.add_argument(
         "--time-limit-sec",
         type=float,
-        default=DEFAULT_ROLLING_TIME_LIMIT_SEC,
-        help="Maximum solver runtime per rolling re-optimization call in seconds.",
+        default=DEFAULT_OR_SCHEDULER_TIME_LIMIT_SEC,
+        help="Maximum solver runtime per scheduler call in seconds.",
     )
     parser.add_argument(
         "--num-workers",
         type=int,
         default=8,
-        help="Number of CP-SAT search workers per rolling solve.",
+        help="Number of CP-SAT search workers per scheduler solve.",
     )
     return parser
 
 
 def _format_solver_summary(metrics: dict[str, Any]) -> tuple[str, str]:
-    """Build stable terminal summary lines for rolling solver diagnostics."""
+    """Build stable terminal summary lines for scheduler solver diagnostics."""
 
     solve_call_count = int(metrics.get("solve_call_count", 0))
     avg_solve_time_sec = float(metrics.get("avg_solve_time_sec", 0.0))
@@ -89,17 +89,20 @@ def _format_solver_summary(metrics: dict[str, Any]) -> tuple[str, str]:
 
 
 def main() -> None:
-    """Replay the full horizon with repeated one-run OR solves and persist outputs."""
+    """Replay the full horizon with the OR scheduler and persist outputs."""
 
     args = build_parser().parse_args()
-    result = run_rolling_or_model_from_csv(
+    result = run_or_scheduler_from_csv(
         args.tickets,
         args.agents,
         time_limit_sec=args.time_limit_sec,
         num_workers=args.num_workers,
     )
-    write_rolling_or_outputs(result, args.schedule_out, args.metrics_out)
-    print("Wrote rolling OR outputs to " f"{args.schedule_out} and {args.metrics_out}")
+    write_or_scheduler_outputs(result, args.schedule_out, args.metrics_out)
+    print(
+        "Wrote OR scheduler outputs to "
+        f"{args.schedule_out} and {args.metrics_out}"
+    )
     summary_line, status_line = _format_solver_summary(result.metrics)
     print(summary_line)
     print(status_line)
