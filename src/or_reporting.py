@@ -46,7 +46,7 @@ def extract_or_scheduler_schedule(
         if has_solution:
             for agent_id in instance.feasible_agent_ids[ticket.ticket_id]:
                 if artifacts.solver.Value(
-                    artifacts.variables.assign[(ticket.ticket_id, agent_id)]
+                    artifacts.variables.x[(ticket.ticket_id, agent_id)]
                 ):
                     chosen_agent_id = agent_id
                     break

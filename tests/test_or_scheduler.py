@@ -114,6 +114,8 @@ class TestOrScheduler(unittest.TestCase):
             self.assertFalse(hasattr(instance, "slot_starts"))
             self.assertFalse(hasattr(instance, "allowed_start_indices"))
             self.assertEqual(instance.decision_ts, datetime(2026, 3, 2, 8, 0))
+            self.assertEqual(instance.horizon_end_ts, datetime(2026, 3, 2, 9, 0))
+            self.assertEqual(instance.horizon_slot_count, 4)
             self.assertEqual(instance.next_decision_ts, datetime(2026, 3, 2, 8, 15))
 
             artifacts = solve_or_scheduler_instance(
@@ -121,9 +123,58 @@ class TestOrScheduler(unittest.TestCase):
                 time_limit_sec=1,
                 num_workers=1,
             )
-            self.assertTrue(all(len(key) == 2 for key in artifacts.variables.assign))
+            self.assertTrue(all(len(key) == 2 for key in artifacts.variables.x))
+            self.assertEqual(
+                set(artifacts.variables.first_response_tardiness),
+                {"TKT-01"},
+            )
+            self.assertEqual(
+                set(artifacts.variables.resolution_tardiness),
+                {"TKT-01"},
+            )
             schedule = extract_or_scheduler_schedule(artifacts)
             self.assertEqual(schedule[0].start_ts, datetime(2026, 3, 2, 8, 0))
+
+    def test_backlog_uses_horizon_proxy_instead_of_next_slot_cost(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tickets_path = Path(tmpdir) / "tickets.csv"
+            agents_path = Path(tmpdir) / "agents.csv"
+            self.write_tickets(
+                tickets_path,
+                [
+                    {
+                        "ticket_id": "TKT-01",
+                        "arrival_ts": "2026-03-02 08:00:00",
+                        "queue": "Product Support",
+                        "priority": "P2",
+                        "language": "EN",
+                        "estimated_effort_min": "15",
+                        "first_response_due_ts": "2026-03-02 08:30:00",
+                        "resolution_due_ts": "2026-03-02 09:00:00",
+                    }
+                ],
+            )
+            self.write_agents(
+                agents_path,
+                [
+                    {
+                        **self.default_agents()[0],
+                        "languages": "DE",
+                    }
+                ],
+            )
+
+            instance = prepare_or_scheduler_instance(
+                tickets_path, agents_path, "2026-03-02 08:00:00"
+            )
+            artifacts = solve_or_scheduler_instance(
+                instance,
+                time_limit_sec=1,
+                num_workers=1,
+            )
+
+            self.assertEqual(artifacts.status_name, "OPTIMAL")
+            self.assertEqual(artifacts.objective_value, 400.0)
 
     def test_overdue_ticket_beats_less_urgent_ticket_when_only_one_start_fits(
         self,

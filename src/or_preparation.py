@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -25,6 +26,8 @@ class OrSchedulerInstance:
     requested_decision_ts: datetime
     decision_ts: datetime
     next_decision_ts: datetime
+    horizon_end_ts: datetime
+    horizon_slot_count: int
     tickets: tuple[TicketRecord, ...]
     agents: tuple[AgentRecord, ...]
     feasible_agent_ids: dict[str, tuple[str, ...]]
@@ -51,7 +54,7 @@ def _next_business_day(day: date) -> date:
 def next_decision_timestamp(
     decision_ts: datetime, agents: list[AgentRecord] | tuple[AgentRecord, ...]
 ) -> datetime:
-    """Return the next rolling decision slot used for backlog cost evaluation."""
+    """Return the next rolling decision slot after ``decision_ts``."""
 
     earliest_shift_start = min(agent.shift_start for agent in agents)
     latest_shift_end = max(agent.shift_end for agent in agents)
@@ -141,6 +144,18 @@ def prepare_or_scheduler_instance(
         raise ValueError("No agents provided to the OR scheduler.")
 
     ordered_agents = tuple(sorted(agents_source, key=lambda agent: agent.agent_id))
+    latest_shift_end = max(agent.shift_end for agent in ordered_agents)
+    horizon_end_ts = combine_date_and_time(rounded_decision_ts.date(), latest_shift_end)
+    horizon_slot_count = max(
+        0,
+        int(
+            math.ceil(
+                (horizon_end_ts - rounded_decision_ts).total_seconds()
+                / 60
+                / SLOT_MINUTES
+            )
+        ),
+    )
     candidate_source = candidate_tickets if candidate_tickets is not None else tickets_source
     active_tickets = tuple(
         sorted(
@@ -201,6 +216,8 @@ def prepare_or_scheduler_instance(
         requested_decision_ts=requested_decision_ts,
         decision_ts=rounded_decision_ts,
         next_decision_ts=next_decision_timestamp(rounded_decision_ts, ordered_agents),
+        horizon_end_ts=horizon_end_ts,
+        horizon_slot_count=horizon_slot_count,
         tickets=active_tickets,
         agents=ordered_agents,
         feasible_agent_ids=feasible_agent_ids,

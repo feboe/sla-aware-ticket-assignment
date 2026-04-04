@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import datetime, timedelta
 from typing import Any
 
 from ortools.sat.python import cp_model
@@ -20,8 +19,10 @@ RESOLUTION_WEIGHTS = {"P1": 100, "P2": 20, "P3": 4, "P4": 1}
 class OrSchedulerVariables:
     """Decision variables used by the current-slot OR scheduler model."""
 
-    assign: dict[tuple[str, str], cp_model.IntVar]
+    x: dict[tuple[str, str], cp_model.IntVar]
     backlog: dict[str, cp_model.IntVar]
+    first_response_tardiness: dict[str, cp_model.IntVar]
+    resolution_tardiness: dict[str, cp_model.IntVar]
 
 
 @dataclass(frozen=True)
@@ -37,22 +38,11 @@ class OrSchedulerSolveArtifacts:
     solve_time_sec: float
 
 
-def _tardiness_slots(actual_ts: datetime, due_ts: datetime) -> int:
-    """Return positive tardiness in scheduler slots."""
+def _slot_offset_floor(ts, origin) -> int:
+    """Convert a timestamp to a slot offset relative to ``origin`` using floor semantics."""
 
-    delta_minutes = max(0.0, (actual_ts - due_ts).total_seconds() / 60.0)
-    return int(math.ceil(delta_minutes / SLOT_MINUTES))
-
-
-def _weighted_tardiness_cost(ticket, start_ts: datetime) -> int:
-    """Return the weighted tardiness cost of starting the ticket at ``start_ts``."""
-
-    completion_ts = start_ts + timedelta(minutes=ticket.duration_slots * SLOT_MINUTES)
-    return FIRST_RESPONSE_WEIGHTS[ticket.priority] * _tardiness_slots(
-        start_ts, ticket.first_response_due_ts
-    ) + RESOLUTION_WEIGHTS[ticket.priority] * _tardiness_slots(
-        completion_ts, ticket.resolution_due_ts
-    )
+    delta_minutes = (ts - origin).total_seconds() / 60.0
+    return int(delta_minutes // SLOT_MINUTES)
 
 
 def build_or_scheduler_model(
@@ -61,26 +51,78 @@ def build_or_scheduler_model(
     """Build the current-slot CP-SAT model for one scheduler decision."""
 
     model = cp_model.CpModel()
-    assign: dict[tuple[str, str], cp_model.IntVar] = {}
+    x: dict[tuple[str, str], cp_model.IntVar] = {}
     backlog: dict[str, cp_model.IntVar] = {}
+    first_response_tardiness: dict[str, cp_model.IntVar] = {}
+    resolution_tardiness: dict[str, cp_model.IntVar] = {}
+
+    max_duration_slots = max(
+        (ticket.duration_slots for ticket in instance.tickets), default=0
+    )
+    earliest_due_ts = min(
+        (
+            min(ticket.first_response_due_ts, ticket.resolution_due_ts)
+            for ticket in instance.tickets
+        ),
+        default=instance.horizon_end_ts,
+    )
+    max_tardiness_slots = (
+        max(
+            0,
+            math.ceil(
+                (instance.horizon_end_ts - earliest_due_ts).total_seconds()
+                / 60
+                / SLOT_MINUTES
+            ),
+        )
+        + max_duration_slots
+    )
 
     for ticket in instance.tickets:
         backlog[ticket.ticket_id] = model.NewBoolVar(f"backlog_{ticket.ticket_id}")
+        first_response_tardiness[ticket.ticket_id] = model.NewIntVar(
+            0, max_tardiness_slots, f"u_fr_{ticket.ticket_id}"
+        )
+        resolution_tardiness[ticket.ticket_id] = model.NewIntVar(
+            0, max_tardiness_slots, f"u_res_{ticket.ticket_id}"
+        )
         for agent_id in instance.feasible_agent_ids[ticket.ticket_id]:
-            assign[(ticket.ticket_id, agent_id)] = model.NewBoolVar(
-                f"assign_{ticket.ticket_id}_{agent_id}"
+            x[(ticket.ticket_id, agent_id)] = model.NewBoolVar(
+                f"x_{ticket.ticket_id}_{agent_id}"
             )
 
     for ticket in instance.tickets:
         ticket_assignments = [
-            assign[(ticket.ticket_id, agent_id)]
+            x[(ticket.ticket_id, agent_id)]
             for agent_id in instance.feasible_agent_ids[ticket.ticket_id]
         ]
         model.Add(sum(ticket_assignments) + backlog[ticket.ticket_id] == 1)
 
+        first_response_due_offset = _slot_offset_floor(
+            ticket.first_response_due_ts, instance.decision_ts
+        )
+        resolution_due_offset = _slot_offset_floor(
+            ticket.resolution_due_ts, instance.decision_ts
+        )
+        completion_expression = sum(
+            ticket.duration_slots * x[(ticket.ticket_id, agent_id)]
+            for agent_id in instance.feasible_agent_ids[ticket.ticket_id]
+        )
+        model.Add(
+            first_response_tardiness[ticket.ticket_id]
+            >= instance.horizon_slot_count * backlog[ticket.ticket_id]
+            - first_response_due_offset
+        )
+        model.Add(
+            resolution_tardiness[ticket.ticket_id]
+            >= completion_expression
+            + instance.horizon_slot_count * backlog[ticket.ticket_id]
+            - resolution_due_offset
+        )
+
     for agent in instance.agents:
         agent_assignments = [
-            assign[(ticket.ticket_id, agent.agent_id)]
+            x[(ticket.ticket_id, agent.agent_id)]
             for ticket in instance.tickets
             if agent.agent_id in instance.feasible_agent_ids[ticket.ticket_id]
         ]
@@ -89,14 +131,22 @@ def build_or_scheduler_model(
 
     objective_terms: list[Any] = []
     for ticket in instance.tickets:
-        scheduled_cost = _weighted_tardiness_cost(ticket, instance.decision_ts)
-        backlog_cost = _weighted_tardiness_cost(ticket, instance.next_decision_ts)
-        for agent_id in instance.feasible_agent_ids[ticket.ticket_id]:
-            objective_terms.append(scheduled_cost * assign[(ticket.ticket_id, agent_id)])
-        objective_terms.append(backlog_cost * backlog[ticket.ticket_id])
+        objective_terms.append(
+            FIRST_RESPONSE_WEIGHTS[ticket.priority]
+            * first_response_tardiness[ticket.ticket_id]
+        )
+        objective_terms.append(
+            RESOLUTION_WEIGHTS[ticket.priority]
+            * resolution_tardiness[ticket.ticket_id]
+        )
 
     model.Minimize(sum(objective_terms))
-    return model, OrSchedulerVariables(assign=assign, backlog=backlog)
+    return model, OrSchedulerVariables(
+        x=x,
+        backlog=backlog,
+        first_response_tardiness=first_response_tardiness,
+        resolution_tardiness=resolution_tardiness,
+    )
 
 
 def solve_or_scheduler_instance(
