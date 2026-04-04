@@ -14,6 +14,7 @@ from src.preprocessing import SLOT_MINUTES
 FIRST_RESPONSE_WEIGHTS = {"P1": 1000, "P2": 200, "P3": 40, "P4": 10}
 RESOLUTION_WEIGHTS = {"P1": 100, "P2": 20, "P3": 4, "P4": 1}
 FAIRNESS_WEIGHT = 1
+START_DELAY_WEIGHT = 1
 
 
 @dataclass(frozen=True)
@@ -25,6 +26,7 @@ class OrModelVariables:
     first_response_tardiness: dict[str, cp_model.IntVar]
     resolution_tardiness: dict[str, cp_model.IntVar]
     load: dict[str, cp_model.IntVar]
+    start_delay: dict[str, cp_model.IntVar]
     max_load: cp_model.IntVar
     min_load: cp_model.IntVar
 
@@ -51,6 +53,7 @@ def build_cp_sat_model(instance: OrInstance) -> tuple[cp_model.CpModel, OrModelV
     first_response_tardiness: dict[str, cp_model.IntVar] = {}
     resolution_tardiness: dict[str, cp_model.IntVar] = {}
     load: dict[str, cp_model.IntVar] = {}
+    start_delay: dict[str, cp_model.IntVar] = {}
 
     total_duration_slots = sum(ticket.duration_slots for ticket in instance.tickets)
     horizon_slot_count = len(instance.slot_starts)
@@ -94,6 +97,10 @@ def build_cp_sat_model(instance: OrInstance) -> tuple[cp_model.CpModel, OrModelV
             0, max_tardiness_slots, f"u_res_{ticket.ticket_id}"
         )
 
+        start_delay[ticket.ticket_id] = model.NewIntVar(
+            0, horizon_slot_count, f"start_delay_{ticket.ticket_id}"
+        )
+
     for agent in instance.agents:
         load[agent.agent_id] = model.NewIntVar(
             0, total_duration_slots, f"load_{agent.agent_id}"
@@ -132,6 +139,11 @@ def build_cp_sat_model(instance: OrInstance) -> tuple[cp_model.CpModel, OrModelV
             for start_index in instance.allowed_start_indices[
                 (ticket.ticket_id, agent.agent_id)
             ]
+        )
+
+        model.Add(
+            start_delay[ticket.ticket_id]
+            == start_expression + horizon_slot_count * backlog[ticket.ticket_id]
         )
 
         model.Add(
@@ -184,6 +196,7 @@ def build_cp_sat_model(instance: OrInstance) -> tuple[cp_model.CpModel, OrModelV
         objective_terms.append(
             RESOLUTION_WEIGHTS[ticket.priority] * resolution_tardiness[ticket.ticket_id]
         )
+        objective_terms.append(START_DELAY_WEIGHT * start_delay[ticket.ticket_id])
     objective_terms.append(FAIRNESS_WEIGHT * (max_load - min_load))
     model.Minimize(sum(objective_terms))
 
@@ -193,6 +206,7 @@ def build_cp_sat_model(instance: OrInstance) -> tuple[cp_model.CpModel, OrModelV
         first_response_tardiness=first_response_tardiness,
         resolution_tardiness=resolution_tardiness,
         load=load,
+        start_delay=start_delay,
         max_load=max_load,
         min_load=min_load,
     )
