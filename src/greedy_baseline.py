@@ -234,7 +234,7 @@ def run_greedy_baseline(
         schedule_by_ticket[ticket.ticket_id]
         for ticket in sorted(tickets, key=lambda item: (item.arrival_ts, item.ticket_id))
     ]
-    metrics = build_metrics(
+    metrics = compute_metrics(
         ordered_schedule,
         agents,
         len(replay_days),
@@ -245,7 +245,7 @@ def run_greedy_baseline(
     return BaselineResult(schedule=ordered_schedule, metrics=metrics)
 
 
-def build_metrics(
+def compute_metrics(
     schedule: list[ScheduleEntry],
     agents: list[AgentRecord],
     replay_day_count: int,

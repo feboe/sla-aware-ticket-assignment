@@ -3,13 +3,7 @@
 from __future__ import annotations
 
 import argparse
-import sys
-from pathlib import Path
 from typing import Any
-
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 from src.or_scheduler import (
     DEFAULT_OR_SCHEDULER_TIME_LIMIT_SEC,
@@ -99,10 +93,7 @@ def main() -> None:
         num_workers=args.num_workers,
     )
     write_or_scheduler_outputs(result, args.schedule_out, args.metrics_out)
-    print(
-        "Wrote OR scheduler outputs to "
-        f"{args.schedule_out} and {args.metrics_out}"
-    )
+    print("Wrote OR scheduler outputs to " f"{args.schedule_out} and {args.metrics_out}")
     summary_line, status_line = _format_solver_summary(result.metrics)
     print(summary_line)
     print(status_line)

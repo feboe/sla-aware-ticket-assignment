@@ -3,14 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]
-# Allow running the script directly from the repository root without installing
-# the project as a package first.
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 from src.greedy_baseline import run_greedy_baseline_from_csv, write_baseline_outputs
 

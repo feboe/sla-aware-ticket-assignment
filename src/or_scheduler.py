@@ -10,7 +10,7 @@ from src.evaluation import ScheduleEntry
 from src.or_preparation import prepare_or_scheduler_instance
 from src.or_reporting import (
     OrSchedulerResult,
-    build_or_scheduler_metrics,
+    compute_or_scheduler_metrics,
     extract_or_scheduler_schedule,
     write_or_scheduler_outputs,
 )
@@ -179,7 +179,7 @@ def run_or_scheduler(
         schedule_by_ticket[ticket.ticket_id]
         for ticket in sorted(tickets, key=lambda item: (item.arrival_ts, item.ticket_id))
     ]
-    metrics = build_or_scheduler_metrics(
+    metrics = compute_or_scheduler_metrics(
         ordered_schedule,
         agents,
         len(replay_days),

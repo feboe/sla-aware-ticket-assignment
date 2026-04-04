@@ -14,6 +14,9 @@ from src.preprocessing import SLOT_MINUTES
 FIRST_RESPONSE_WEIGHTS = {"P1": 1000, "P2": 200, "P3": 40, "P4": 10}
 RESOLUTION_WEIGHTS = {"P1": 100, "P2": 20, "P3": 4, "P4": 1}
 
+# TODO: go trough workflow and debug in notebook
+# TODO: improve objective to encourage work
+
 
 @dataclass(frozen=True)
 class OrSchedulerVariables:
@@ -45,10 +48,10 @@ def _slot_offset_floor(ts, origin) -> int:
     return int(delta_minutes // SLOT_MINUTES)
 
 
-def build_or_scheduler_model(
+def create_or_scheduler_model(
     instance: OrSchedulerInstance,
 ) -> tuple[cp_model.CpModel, OrSchedulerVariables]:
-    """Build the current-slot CP-SAT model for one scheduler decision."""
+    """Create the current-slot CP-SAT model for one scheduler decision."""
 
     model = cp_model.CpModel()
     x: dict[tuple[str, str], cp_model.IntVar] = {}
@@ -136,8 +139,7 @@ def build_or_scheduler_model(
             * first_response_tardiness[ticket.ticket_id]
         )
         objective_terms.append(
-            RESOLUTION_WEIGHTS[ticket.priority]
-            * resolution_tardiness[ticket.ticket_id]
+            RESOLUTION_WEIGHTS[ticket.priority] * resolution_tardiness[ticket.ticket_id]
         )
 
     model.Minimize(sum(objective_terms))
@@ -156,7 +158,7 @@ def solve_or_scheduler_instance(
 ) -> OrSchedulerSolveArtifacts:
     """Solve one current-slot OR scheduler instance."""
 
-    model, variables = build_or_scheduler_model(instance)
+    model, variables = create_or_scheduler_model(instance)
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = time_limit_sec
     solver.parameters.num_search_workers = num_workers

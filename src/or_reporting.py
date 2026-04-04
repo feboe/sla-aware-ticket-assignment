@@ -100,7 +100,7 @@ def extract_or_scheduler_schedule(
     return schedule
 
 
-def build_or_scheduler_metrics(
+def compute_or_scheduler_metrics(
     schedule: list[ScheduleEntry],
     agents: list[AgentRecord],
     replay_day_count: int,

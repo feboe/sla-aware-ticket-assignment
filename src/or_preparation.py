@@ -150,13 +150,13 @@ def prepare_or_scheduler_instance(
         0,
         int(
             math.ceil(
-                (horizon_end_ts - rounded_decision_ts).total_seconds()
-                / 60
-                / SLOT_MINUTES
+                (horizon_end_ts - rounded_decision_ts).total_seconds() / 60 / SLOT_MINUTES
             )
         ),
     )
-    candidate_source = candidate_tickets if candidate_tickets is not None else tickets_source
+    candidate_source = (
+        candidate_tickets if candidate_tickets is not None else tickets_source
+    )
     active_tickets = tuple(
         sorted(
             (
@@ -178,15 +178,11 @@ def prepare_or_scheduler_instance(
         shift_start_ts = combine_date_and_time(
             rounded_decision_ts.date(), agent.shift_start
         )
-        shift_end_ts = combine_date_and_time(
-            rounded_decision_ts.date(), agent.shift_end
-        )
+        shift_end_ts = combine_date_and_time(rounded_decision_ts.date(), agent.shift_end)
         remaining_shift_minutes = max(
             0,
             int(
-                (
-                    shift_end_ts - max(rounded_decision_ts, shift_start_ts)
-                ).total_seconds()
+                (shift_end_ts - max(rounded_decision_ts, shift_start_ts)).total_seconds()
                 / 60
             ),
         )

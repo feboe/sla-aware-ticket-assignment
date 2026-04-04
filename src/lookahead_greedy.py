@@ -14,7 +14,7 @@ from pathlib import Path
 from src.evaluation import ScheduleEntry, tardiness_minutes
 from src.greedy_baseline import (
     BaselineResult,
-    build_metrics,
+    compute_metrics,
     ticket_sort_key,
     write_baseline_outputs,
 )
@@ -214,7 +214,7 @@ def run_lookahead_greedy(
         schedule_by_ticket[ticket.ticket_id]
         for ticket in sorted(tickets, key=lambda item: (item.arrival_ts, item.ticket_id))
     ]
-    metrics = build_metrics(
+    metrics = compute_metrics(
         ordered_schedule,
         agents,
         len(replay_days),
