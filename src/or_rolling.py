@@ -26,6 +26,8 @@ from src.preprocessing import (
     load_tickets,
 )
 
+DEFAULT_ROLLING_TIME_LIMIT_SEC = 4.0
+
 
 @dataclass(frozen=True)
 class RollingOrResult:
@@ -56,7 +58,7 @@ def _agent_can_start_now(
 def run_rolling_or_model(
     tickets: list[TicketRecord],
     agents: list[AgentRecord],
-    time_limit_sec: float = 1.0,
+    time_limit_sec: float = DEFAULT_ROLLING_TIME_LIMIT_SEC,
     num_workers: int = 8,
 ) -> RollingOrResult:
     """Replay the full dataset and re-solve a one-run OR model every 15 minutes."""
@@ -225,7 +227,7 @@ def write_rolling_or_outputs(
 def run_rolling_or_model_from_csv(
     ticket_csv_path: str | Path,
     agent_csv_path: str | Path,
-    time_limit_sec: float = 0.2,
+    time_limit_sec: float = DEFAULT_ROLLING_TIME_LIMIT_SEC,
     num_workers: int = 8,
 ) -> RollingOrResult:
     """Convenience wrapper for the rolling OR CLI and tests."""

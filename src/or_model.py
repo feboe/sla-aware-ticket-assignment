@@ -1,5 +1,10 @@
 """Compatibility facade for the one-run CP-SAT ticket-assignment model."""
 
+# TODO: go through the whole or one run workflow
+# TODO: create a debug workflow in a notebook
+# TODO: Cleanup whole or workflow (especially this module)
+# TODO: consider more documentation and type annotations in the whole or workflow
+
 from __future__ import annotations
 
 from datetime import datetime

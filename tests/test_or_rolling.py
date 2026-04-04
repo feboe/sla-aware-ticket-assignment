@@ -3,14 +3,20 @@
 from __future__ import annotations
 
 import csv
+import io
 import json
+import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import patch
 
+from scripts import run_rolling_or_model as rolling_cli
 from src.evaluation import SCHEDULE_FIELDNAMES
 from src.or_rolling import (
+    RollingOrResult,
     run_rolling_or_model,
     run_rolling_or_model_from_csv,
     write_rolling_or_outputs,
@@ -358,6 +364,85 @@ class TestRollingOrModel(unittest.TestCase):
                 direct_result.metrics["tickets_in_backlog"],
                 csv_result.metrics["tickets_in_backlog"],
             )
+
+    def test_cli_prints_solver_summary(self) -> None:
+        result = RollingOrResult(
+            schedule=[],
+            metrics={
+                "solve_call_count": 155,
+                "avg_solve_time_sec": 0.7,
+                "solver_status_counts": {
+                    "OPTIMAL": 58,
+                    "FEASIBLE": 20,
+                    "UNKNOWN": 77,
+                },
+            },
+        )
+
+        with (
+            patch.object(
+                rolling_cli, "run_rolling_or_model_from_csv", return_value=result
+            ),
+            patch.object(rolling_cli, "write_rolling_or_outputs"),
+            patch.object(
+                sys,
+                "argv",
+                [
+                    "run_rolling_or_model.py",
+                    "--schedule-out",
+                    "tmp_schedule.csv",
+                    "--metrics-out",
+                    "tmp_metrics.json",
+                ],
+            ),
+        ):
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                rolling_cli.main()
+
+        output_lines = stdout.getvalue().strip().splitlines()
+        self.assertEqual(
+            output_lines[0],
+            "Wrote rolling OR outputs to tmp_schedule.csv and tmp_metrics.json",
+        )
+        self.assertEqual(
+            output_lines[1], "Solver summary: 155 solves, avg 0.7000s per solve"
+        )
+        self.assertEqual(output_lines[2], "Statuses: OPTIMAL=58, FEASIBLE=20, UNKNOWN=77")
+
+    def test_cli_prints_missing_known_statuses_as_zero_and_sorts_extras(self) -> None:
+        result = RollingOrResult(
+            schedule=[],
+            metrics={
+                "solve_call_count": 3,
+                "avg_solve_time_sec": 0.125,
+                "solver_status_counts": {
+                    "OPTIMAL": 1,
+                    "INFEASIBLE": 2,
+                    "MODEL_INVALID": 4,
+                },
+            },
+        )
+
+        with (
+            patch.object(
+                rolling_cli, "run_rolling_or_model_from_csv", return_value=result
+            ),
+            patch.object(rolling_cli, "write_rolling_or_outputs"),
+            patch.object(sys, "argv", ["run_rolling_or_model.py"]),
+        ):
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                rolling_cli.main()
+
+        output_lines = stdout.getvalue().strip().splitlines()
+        self.assertEqual(
+            output_lines[1], "Solver summary: 3 solves, avg 0.1250s per solve"
+        )
+        self.assertEqual(
+            output_lines[2],
+            "Statuses: OPTIMAL=1, FEASIBLE=0, UNKNOWN=0, INFEASIBLE=2, MODEL_INVALID=4",
+        )
 
 
 if __name__ == "__main__":
