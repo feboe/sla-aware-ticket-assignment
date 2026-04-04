@@ -166,6 +166,40 @@ class TestOrModel(unittest.TestCase):
             )
             self.assertEqual(late_instance.allowed_start_indices[("TKT-02", "AG-01")], ())
 
+    def test_prepare_instance_can_restrict_starts_to_current_slot_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tickets_path = Path(tmpdir) / "tickets.csv"
+            agents_path = Path(tmpdir) / "agents.csv"
+            self.write_tickets(
+                tickets_path,
+                [
+                    {
+                        "ticket_id": "TKT-01",
+                        "arrival_ts": "2026-03-02 08:00:00",
+                        "queue": "Product Support",
+                        "priority": "P2",
+                        "language": "EN",
+                        "estimated_effort_min": "30",
+                        "first_response_due_ts": "2026-03-02 09:00:00",
+                        "resolution_due_ts": "2026-03-02 12:00:00",
+                    }
+                ],
+            )
+            self.write_agents(agents_path, self.default_agents())
+
+            instance = prepare_or_instance(
+                tickets_path,
+                agents_path,
+                "2026-03-02 08:00:00",
+                current_slot_only_starts=True,
+            )
+
+            self.assertGreater(len(instance.slot_starts), 1)
+            non_empty_start_indices = [
+                indices for indices in instance.allowed_start_indices.values() if indices
+            ]
+            self.assertEqual(non_empty_start_indices, [(0,)])
+
     def test_single_ticket_is_scheduled(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tickets_path = Path(tmpdir) / "tickets.csv"

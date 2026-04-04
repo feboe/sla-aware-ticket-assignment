@@ -87,6 +87,7 @@ def prepare_or_instance(
     candidate_tickets: list[TicketRecord] | None = None,
     occupied_slots_by_agent: dict[tuple[str, date], set[datetime]] | None = None,
     used_capacity_minutes: dict[tuple[str, date], int] | None = None,
+    current_slot_only_starts: bool = False,
 ) -> OrInstance:
     """Build one one-run OR instance for a specific decision timestamp.
 
@@ -111,6 +112,10 @@ def prepare_or_instance(
         used_capacity_minutes: Optional mapping of already consumed daily
             capacity by ``(agent_id, day)``. Remaining agent capacity is reduced
             accordingly.
+        current_slot_only_starts: When ``True``, keep the same horizon metadata
+            but restrict legal starts to the current slot only. This is used by
+            the rolling controller so future starts are reconsidered in later
+            solves instead of being preplanned here.
 
     Returns:
         An ``OrInstance`` containing the active tickets, ordered agents, legal
@@ -208,8 +213,11 @@ def prepare_or_instance(
                 (agent.agent_id, rounded_decision_ts.date()), set()
             )
 
+            candidate_slot_starts = (
+                slot_starts[:1] if current_slot_only_starts else slot_starts
+            )
             allowed_indices: list[int] = []
-            for start_index, slot_start in enumerate(slot_starts):
+            for start_index, slot_start in enumerate(candidate_slot_starts):
                 completion_ts = slot_start + timedelta(
                     minutes=ticket.duration_slots * SLOT_MINUTES
                 )

@@ -129,6 +129,7 @@ def run_rolling_or_model(
                 candidate_tickets=list(open_tickets.values()),
                 occupied_slots_by_agent=occupied_slots_by_agent,
                 used_capacity_minutes=per_day_workload,
+                current_slot_only_starts=True,
             )
             if not instance.tickets:
                 continue

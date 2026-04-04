@@ -84,7 +84,7 @@ class TestRollingOrModel(unittest.TestCase):
             }
         ]
 
-    def test_current_slot_only_commitment_can_change_future_plan(self) -> None:
+    def test_backlog_and_new_releases_are_reconsidered_each_slot(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tickets_path = Path(tmpdir) / "tickets.csv"
             agents_path = Path(tmpdir) / "agents.csv"
@@ -137,7 +137,7 @@ class TestRollingOrModel(unittest.TestCase):
                 schedule_by_id["TKT-C"].start_ts, datetime(2026, 3, 2, 8, 15)
             )
             self.assertEqual(schedule_by_id["TKT-B"].status, "scheduled")
-            self.assertGreaterEqual(
+            self.assertEqual(
                 schedule_by_id["TKT-B"].start_ts, datetime(2026, 3, 2, 8, 30)
             )
 
