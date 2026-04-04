@@ -24,7 +24,7 @@ from src.preprocessing import (
 )
 
 
-TICKETS_PATH = Path("data/ticket_assignment_tickets.csv")
+TICKETS_PATH = Path("data/tickets.csv")
 AGENTS_PATH = Path("data/agents.csv")
 
 

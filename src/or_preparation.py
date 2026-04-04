@@ -88,7 +88,38 @@ def prepare_or_instance(
     occupied_slots_by_agent: dict[tuple[str, date], set[datetime]] | None = None,
     used_capacity_minutes: dict[tuple[str, date], int] | None = None,
 ) -> OrInstance:
-    """Load or reuse parsed data and derive a one-run CP-SAT instance."""
+    """Build one one-run OR instance for a specific decision timestamp.
+
+    Args:
+        ticket_csv_path: Path to the ticket CSV when parsed ticket records are not
+            provided through ``tickets_override``.
+        agent_csv_path: Path to the agent CSV when parsed agent records are not
+            provided through ``agents_override``.
+        decision_ts: Decision timestamp for the solve. Strings must use the
+            shared ``YYYY-MM-DD HH:MM:SS`` format and are rounded up to the next
+            15-minute slot.
+        tickets_override: Optional preloaded ticket records that bypass CSV
+            loading.
+        agents_override: Optional preloaded agent records that bypass CSV
+            loading.
+        candidate_tickets: Optional subset of tickets to consider before the
+            active-ticket filter is applied. This is mainly used by the rolling
+            controller to pass backlog plus newly released tickets.
+        occupied_slots_by_agent: Optional mapping of already committed occupied
+            15-minute slots by ``(agent_id, day)``. Candidate starts that would
+            overlap those slots are excluded.
+        used_capacity_minutes: Optional mapping of already consumed daily
+            capacity by ``(agent_id, day)``. Remaining agent capacity is reduced
+            accordingly.
+
+    Returns:
+        An ``OrInstance`` containing the active tickets, ordered agents, legal
+        start indices, and remaining capacity values for the requested solve.
+
+    Raises:
+        ValueError: If no agents are available from either the CSV input or the
+            override records.
+    """
 
     requested_decision_ts = parse_decision_timestamp(decision_ts)
     rounded_decision_ts = ceil_to_slot(requested_decision_ts)

@@ -24,7 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--tickets",
-        default="data/ticket_assignment_tickets.csv",
+        default="data/tickets.csv",
         help="Path to the ticket-demand CSV.",
     )
     parser.add_argument(

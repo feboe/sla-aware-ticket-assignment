@@ -28,7 +28,7 @@ from src.greedy_baseline import (
 )
 
 
-TICKETS_PATH = Path("data/ticket_assignment_tickets.csv")
+TICKETS_PATH = Path("data/tickets.csv")
 AGENTS_PATH = Path("data/agents.csv")
 
 
@@ -82,9 +82,7 @@ class TestGreedyBaseline(unittest.TestCase):
             first_response_tardiness_min=0.0,
             resolution_tardiness_min=0.0,
         )
-        self.assertEqual(
-            entry.to_row()["start_ts"], "2026-03-02 08:00:00"
-        )
+        self.assertEqual(entry.to_row()["start_ts"], "2026-03-02 08:00:00")
 
     def test_schedule_covers_all_tickets(self) -> None:
         self.assertEqual(len(self.schedule), len(self.tickets))
@@ -163,9 +161,7 @@ class TestGreedyBaseline(unittest.TestCase):
         backlog_entries = [
             entry for entry in self.schedule if entry.status == "backlog_end"
         ]
-        self.assertEqual(
-            len(backlog_entries), self.metrics["tickets_in_backlog"]
-        )
+        self.assertEqual(len(backlog_entries), self.metrics["tickets_in_backlog"])
         self.assertEqual(
             sum(entry.duration_slots * SLOT_MINUTES for entry in backlog_entries),
             self.metrics["backlog"]["effort_min"],
@@ -449,9 +445,7 @@ class TestGreedyBaseline(unittest.TestCase):
                 "overdue_resolution_count": 0,
             },
         )
-        self.assertEqual(
-            backlog_metrics["ticket_count"], 2
-        )
+        self.assertEqual(backlog_metrics["ticket_count"], 2)
         self.assertEqual(backlog_metrics["effort_min"], 30)
         self.assertEqual(backlog_metrics["first_response_tardiness_min"], 450.0)
         self.assertEqual(backlog_metrics["resolution_tardiness_min"], 360.0)
@@ -487,7 +481,9 @@ class TestGreedyBaseline(unittest.TestCase):
             backlog_metrics["ticket_count"],
         )
         self.assertEqual(
-            sum(values["effort_min"] for values in backlog_metrics["by_priority"].values()),
+            sum(
+                values["effort_min"] for values in backlog_metrics["by_priority"].values()
+            ),
             backlog_metrics["effort_min"],
         )
         self.assertEqual(

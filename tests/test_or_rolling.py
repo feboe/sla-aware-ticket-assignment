@@ -92,7 +92,7 @@ class TestRollingOrModel(unittest.TestCase):
                         "priority": "P1",
                         "language": "EN",
                         "estimated_effort_min": "15",
-                        "first_response_due_ts": "2026-03-02 08:15:00",
+                        "first_response_due_ts": "2026-03-02 08:00:00",
                         "resolution_due_ts": "2026-03-02 09:00:00",
                     },
                     {
@@ -112,7 +112,7 @@ class TestRollingOrModel(unittest.TestCase):
                         "priority": "P1",
                         "language": "EN",
                         "estimated_effort_min": "15",
-                        "first_response_due_ts": "2026-03-02 08:30:00",
+                        "first_response_due_ts": "2026-03-02 08:15:00",
                         "resolution_due_ts": "2026-03-02 09:00:00",
                     },
                 ],

@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Dict, List
 
 SEED = 42
-OUTPUT_CSV = Path("data/ticket_assignment_tickets.csv")
+OUTPUT_CSV = Path("data/tickets.csv")
 TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 SHIFT_START_HOUR = 8
