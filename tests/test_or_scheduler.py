@@ -16,6 +16,8 @@ from src.evaluation import SCHEDULE_FIELDNAMES
 from src.greedy_baseline import run_greedy_baseline_from_csv
 from src.lookahead_greedy import run_lookahead_greedy_from_csv
 from src.or_scheduler import (
+    DEFAULT_OR_SCHEDULER_NUM_WORKERS,
+    DEFAULT_OR_SCHEDULER_TIME_LIMIT_SEC,
     OrSchedulerResult,
     run_or_scheduler,
     run_or_scheduler_from_csv,
@@ -662,6 +664,13 @@ class TestOrScheduler(unittest.TestCase):
             output_lines[1], "Solver summary: 155 solves, avg 0.7000s per solve"
         )
         self.assertEqual(output_lines[2], "Statuses: OPTIMAL=58, FEASIBLE=20, UNKNOWN=77")
+
+    def test_cli_parser_defaults_match_scheduler_constants(self) -> None:
+        parser = scheduler_cli.build_parser()
+        args = parser.parse_args([])
+
+        self.assertEqual(args.time_limit_sec, DEFAULT_OR_SCHEDULER_TIME_LIMIT_SEC)
+        self.assertEqual(args.num_workers, DEFAULT_OR_SCHEDULER_NUM_WORKERS)
 
     def test_cli_prints_missing_known_statuses_as_zero_and_sorts_extras(self) -> None:
         result = OrSchedulerResult(

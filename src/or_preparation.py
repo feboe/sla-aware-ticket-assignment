@@ -14,6 +14,7 @@ from src.preprocessing import (
     is_agent_feasible,
     load_agents,
     load_tickets,
+    parse_timestamp,
 )
 
 
@@ -29,14 +30,6 @@ class OrSchedulerInstance:
     agents: tuple[AgentRecord, ...]
     feasible_agent_ids: dict[str, tuple[str, ...]]
     remaining_capacity_minutes: dict[str, int]
-
-
-def parse_decision_timestamp(value: str | datetime) -> datetime:
-    """Accept either a parsed timestamp or the shared timestamp string format."""
-
-    if isinstance(value, datetime):
-        return value
-    return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
 
 
 def _overlaps_committed_slots(
@@ -98,7 +91,9 @@ def prepare_or_scheduler_instance(
 ) -> OrSchedulerInstance:
     """Build one current-slot OR scheduler instance for a specific decision time."""
 
-    requested_decision_ts = parse_decision_timestamp(decision_ts)
+    requested_decision_ts = (
+        decision_ts if isinstance(decision_ts, datetime) else parse_timestamp(decision_ts)
+    )
     rounded_decision_ts = ceil_to_slot(requested_decision_ts)
 
     tickets_source = (

@@ -12,9 +12,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List
 
+from src.preprocessing import TIMESTAMP_FORMAT
+
 SEED = 42
 OUTPUT_CSV = Path("data/tickets.csv")
-TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 SHIFT_START_HOUR = 8
 SHIFT_DURATION_HOURS = 8

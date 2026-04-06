@@ -5,8 +5,6 @@ serialization, and metric helpers live in dedicated modules so the baseline and
 the OR model can both depend on the same source of truth.
 """
 
-import csv
-import json
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -14,15 +12,10 @@ from pathlib import Path
 from typing import Any
 
 from src.evaluation import (
-    SCHEDULE_FIELDNAMES,
     ScheduleEntry,
-    accumulate_metric_section,
-    compute_agent_solved_priority_counts,
-    compute_overall_agent_utilization,
-    empty_metric_section,
-    finalize_metric_section,
-    format_timestamp,
+    compute_schedule_metrics,
     tardiness_minutes,
+    write_schedule_outputs,
 )
 from src.preprocessing import (
     AgentRecord,
@@ -250,70 +243,14 @@ def compute_metrics(
 ) -> dict[str, Any]:
     """Aggregate the schedule into overview metrics plus nested detail sections."""
 
-    scheduled_metrics = empty_metric_section()
-    backlog_metrics = empty_metric_section()
-
-    for entry in schedule:
-        effort_min = entry.duration_slots * SLOT_MINUTES
-        if entry.status == "scheduled":
-            accumulate_metric_section(
-                scheduled_metrics,
-                entry.priority,
-                effort_min,
-                entry.first_response_tardiness_min or 0.0,
-                entry.resolution_tardiness_min or 0.0,
-            )
-            continue
-
-        accumulate_metric_section(
-            backlog_metrics,
-            entry.priority,
-            effort_min,
-            tardiness_minutes(final_horizon_end, entry.first_response_due_ts),
-            tardiness_minutes(final_horizon_end, entry.resolution_due_ts),
-        )
-
-    scheduled_metrics = finalize_metric_section(scheduled_metrics)
-    backlog_metrics = finalize_metric_section(backlog_metrics)
-
-    solved_priority_counts = compute_agent_solved_priority_counts(schedule, agents)
-    agent_utilization = {}
-    for agent in agents:
-        capacity_minutes = replay_day_count * agent.capacity_min_per_day
-        workload_minutes = workload_minutes_per_agent[agent.agent_id]
-        agent_utilization[agent.agent_id] = {
-            "workload_minutes": workload_minutes,
-            "capacity_minutes": capacity_minutes,
-            "utilization": round(workload_minutes / capacity_minutes, 4),
-            **solved_priority_counts[agent.agent_id],
-        }
-    overall_agent_utilization = compute_overall_agent_utilization(
-        agents, replay_day_count, workload_minutes_per_agent
+    return compute_schedule_metrics(
+        schedule,
+        agents,
+        replay_day_count,
+        workload_minutes_per_agent,
+        horizon_start_ts,
+        final_horizon_end,
     )
-
-    return {
-        "replay_business_days": replay_day_count,
-        "slot_minutes": SLOT_MINUTES,
-        "horizon_start_ts": format_timestamp(horizon_start_ts),
-        "horizon_end_ts": format_timestamp(final_horizon_end),
-        "total_tickets": len(schedule),
-        "scheduled_tickets": scheduled_metrics["ticket_count"],
-        "tickets_in_backlog": backlog_metrics["ticket_count"],
-        "total_first_response_tardiness_min": round(
-            scheduled_metrics["first_response_tardiness_min"]
-            + backlog_metrics["first_response_tardiness_min"],
-            2,
-        ),
-        "total_resolution_tardiness_min": round(
-            scheduled_metrics["resolution_tardiness_min"]
-            + backlog_metrics["resolution_tardiness_min"],
-            2,
-        ),
-        "scheduled": scheduled_metrics,
-        "backlog": backlog_metrics,
-        "agent_utilization": agent_utilization,
-        "overall_agent_utilization": overall_agent_utilization,
-    }
 
 
 def write_baseline_outputs(
@@ -323,20 +260,9 @@ def write_baseline_outputs(
 ) -> None:
     """Write the baseline schedule and metric summary to disk."""
 
-    schedule_path = Path(schedule_output_path)
-    metrics_path = Path(metrics_output_path)
-    schedule_path.parent.mkdir(parents=True, exist_ok=True)
-    metrics_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with schedule_path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=SCHEDULE_FIELDNAMES)
-        writer.writeheader()
-        for entry in result.schedule:
-            writer.writerow(entry.to_row())
-
-    with metrics_path.open("w", encoding="utf-8") as handle:
-        json.dump(result.metrics, handle, indent=2)
-        handle.write("\n")
+    write_schedule_outputs(
+        result.schedule, result.metrics, schedule_output_path, metrics_output_path
+    )
 
 
 def run_greedy_baseline_from_csv(

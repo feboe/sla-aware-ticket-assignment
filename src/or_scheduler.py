@@ -23,7 +23,8 @@ from src.preprocessing import (
     load_tickets,
 )
 
-DEFAULT_OR_SCHEDULER_TIME_LIMIT_SEC = 1
+DEFAULT_OR_SCHEDULER_TIME_LIMIT_SEC = 1.0
+DEFAULT_OR_SCHEDULER_NUM_WORKERS = 1
 
 
 def _agent_can_start_now(
@@ -48,7 +49,7 @@ def run_or_scheduler(
     tickets: list[TicketRecord],
     agents: list[AgentRecord],
     time_limit_sec: float = DEFAULT_OR_SCHEDULER_TIME_LIMIT_SEC,
-    num_workers: int = 8,
+    num_workers: int = DEFAULT_OR_SCHEDULER_NUM_WORKERS,
 ) -> OrSchedulerResult:
     """Replay the full dataset with repeated current-slot OR scheduler solves."""
 
@@ -196,7 +197,7 @@ def run_or_scheduler_from_csv(
     ticket_csv_path: str | Path,
     agent_csv_path: str | Path,
     time_limit_sec: float = DEFAULT_OR_SCHEDULER_TIME_LIMIT_SEC,
-    num_workers: int = 1,
+    num_workers: int = DEFAULT_OR_SCHEDULER_NUM_WORKERS,
 ) -> OrSchedulerResult:
     """Convenience wrapper for the OR scheduler CLI and tests."""
 
@@ -212,6 +213,7 @@ def run_or_scheduler_from_csv(
 
 __all__ = [
     "DEFAULT_OR_SCHEDULER_TIME_LIMIT_SEC",
+    "DEFAULT_OR_SCHEDULER_NUM_WORKERS",
     "OrSchedulerResult",
     "run_or_scheduler",
     "run_or_scheduler_from_csv",

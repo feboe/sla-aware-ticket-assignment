@@ -341,9 +341,13 @@ class TestGreedyBaseline(unittest.TestCase):
             },
         )
         self.assertEqual(overall["workload_minutes"], total_workload_minutes)
-        self.assertEqual(overall["workload_hours"], round(total_workload_minutes / 60.0, 2))
+        self.assertEqual(
+            overall["workload_hours"], round(total_workload_minutes / 60.0, 2)
+        )
         self.assertEqual(overall["capacity_minutes"], total_capacity_minutes)
-        self.assertEqual(overall["capacity_hours"], round(total_capacity_minutes / 60.0, 2))
+        self.assertEqual(
+            overall["capacity_hours"], round(total_capacity_minutes / 60.0, 2)
+        )
         self.assertEqual(
             overall["utilization"],
             round(total_workload_minutes / total_capacity_minutes, 4),

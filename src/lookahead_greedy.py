@@ -9,12 +9,8 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from src.evaluation import ScheduleEntry, tardiness_minutes
-from src.greedy_baseline import (
-    BaselineResult,
-    compute_metrics,
-    ticket_sort_key,
-)
+from src.evaluation import ScheduleEntry, compute_schedule_metrics, tardiness_minutes
+from src.greedy_baseline import BaselineResult, ticket_sort_key
 from src.preprocessing import (
     AgentRecord,
     SLOT_MINUTES,
@@ -211,7 +207,7 @@ def run_lookahead_greedy(
         schedule_by_ticket[ticket.ticket_id]
         for ticket in sorted(tickets, key=lambda item: (item.arrival_ts, item.ticket_id))
     ]
-    metrics = compute_metrics(
+    metrics = compute_schedule_metrics(
         ordered_schedule,
         agents,
         len(replay_days),

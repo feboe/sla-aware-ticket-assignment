@@ -6,8 +6,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
-from scripts.generate_ticket_assignment_data import TIMESTAMP_FORMAT
-
+TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 SLOT_MINUTES = 15
 
 

@@ -5,6 +5,7 @@ from typing import Any
 
 from src.or_reporting import write_or_scheduler_outputs
 from src.or_scheduler import (
+    DEFAULT_OR_SCHEDULER_NUM_WORKERS,
     DEFAULT_OR_SCHEDULER_TIME_LIMIT_SEC,
     run_or_scheduler_from_csv,
 )
@@ -47,7 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--num-workers",
         type=int,
-        default=1,
+        default=DEFAULT_OR_SCHEDULER_NUM_WORKERS,
         help="Number of CP-SAT search workers per scheduler solve.",
     )
     return parser

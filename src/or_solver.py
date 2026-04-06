@@ -159,8 +159,8 @@ def create_or_scheduler_model(
 
 def solve_or_scheduler_instance(
     instance: OrSchedulerInstance,
-    time_limit_sec: float = 30,
-    num_workers: int = 8,
+    time_limit_sec: float,
+    num_workers: int,
 ) -> OrSchedulerSolveArtifacts:
     """Solve one current-slot OR scheduler instance."""
 
