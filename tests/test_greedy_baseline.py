@@ -266,10 +266,22 @@ class TestGreedyBaseline(unittest.TestCase):
         self.assertEqual(observed_agents, set(self.agent_by_id.keys()))
 
         workload_by_agent = {agent_id: 0 for agent_id in self.agent_by_id}
+        solved_counts_by_agent = {
+            agent_id: {
+                "p1_tickets_solved": 0,
+                "p2_tickets_solved": 0,
+                "p3_tickets_solved": 0,
+                "p4_tickets_solved": 0,
+            }
+            for agent_id in self.agent_by_id
+        }
         for entry in self.schedule:
             if entry.status != "scheduled":
                 continue
             workload_by_agent[entry.agent_id] += entry.duration_slots * SLOT_MINUTES
+            solved_counts_by_agent[entry.agent_id][
+                f"{entry.priority.lower()}_tickets_solved"
+            ] += 1
 
         for agent_id, metrics in self.metrics["agent_utilization"].items():
             agent = self.agent_by_id[agent_id]
@@ -278,13 +290,37 @@ class TestGreedyBaseline(unittest.TestCase):
             )
             self.assertEqual(
                 set(metrics.keys()),
-                {"workload_minutes", "capacity_minutes", "utilization"},
+                {
+                    "workload_minutes",
+                    "capacity_minutes",
+                    "utilization",
+                    "p1_tickets_solved",
+                    "p2_tickets_solved",
+                    "p3_tickets_solved",
+                    "p4_tickets_solved",
+                },
             )
             self.assertEqual(metrics["workload_minutes"], workload_by_agent[agent_id])
             self.assertEqual(metrics["capacity_minutes"], capacity_minutes)
             self.assertEqual(
                 metrics["utilization"],
                 round(workload_by_agent[agent_id] / capacity_minutes, 4),
+            )
+            self.assertEqual(
+                metrics["p1_tickets_solved"],
+                solved_counts_by_agent[agent_id]["p1_tickets_solved"],
+            )
+            self.assertEqual(
+                metrics["p2_tickets_solved"],
+                solved_counts_by_agent[agent_id]["p2_tickets_solved"],
+            )
+            self.assertEqual(
+                metrics["p3_tickets_solved"],
+                solved_counts_by_agent[agent_id]["p3_tickets_solved"],
+            )
+            self.assertEqual(
+                metrics["p4_tickets_solved"],
+                solved_counts_by_agent[agent_id]["p4_tickets_solved"],
             )
 
     def test_overall_agent_utilization_matches_schedule(self) -> None:

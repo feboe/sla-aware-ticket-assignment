@@ -523,6 +523,33 @@ class TestOrScheduler(unittest.TestCase):
                     metrics["overall_agent_utilization"]["capacity_minutes"] / 60.0, 2
                 ),
             )
+            solved_counts_by_agent = {agent_id: {"p1": 0, "p2": 0, "p3": 0, "p4": 0} for agent_id in metrics["agent_utilization"]}
+            for entry in result.schedule:
+                if entry.status != "scheduled":
+                    continue
+                solved_counts_by_agent[entry.agent_id][entry.priority.lower()] += 1
+
+            for agent_id, agent_metrics in metrics["agent_utilization"].items():
+                self.assertIn("p1_tickets_solved", agent_metrics)
+                self.assertIn("p2_tickets_solved", agent_metrics)
+                self.assertIn("p3_tickets_solved", agent_metrics)
+                self.assertIn("p4_tickets_solved", agent_metrics)
+                self.assertEqual(
+                    agent_metrics["p1_tickets_solved"],
+                    solved_counts_by_agent[agent_id]["p1"],
+                )
+                self.assertEqual(
+                    agent_metrics["p2_tickets_solved"],
+                    solved_counts_by_agent[agent_id]["p2"],
+                )
+                self.assertEqual(
+                    agent_metrics["p3_tickets_solved"],
+                    solved_counts_by_agent[agent_id]["p3"],
+                )
+                self.assertEqual(
+                    agent_metrics["p4_tickets_solved"],
+                    solved_counts_by_agent[agent_id]["p4"],
+                )
 
             with schedule_path.open(newline="", encoding="utf-8") as handle:
                 reader = csv.DictReader(handle)

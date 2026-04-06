@@ -142,6 +142,11 @@ class TestLookaheadGreedy(unittest.TestCase):
     def test_metrics_top_level_shape_matches_greedy_baseline(self) -> None:
         greedy_metrics = run_greedy_baseline(self.tickets, self.agents).metrics
         self.assertEqual(set(self.metrics.keys()), set(greedy_metrics.keys()))
+        sample_agent_id = next(iter(self.metrics["agent_utilization"]))
+        self.assertEqual(
+            set(self.metrics["agent_utilization"][sample_agent_id].keys()),
+            set(greedy_metrics["agent_utilization"][sample_agent_id].keys()),
+        )
         self.assertEqual(
             set(self.metrics["overall_agent_utilization"].keys()),
             set(greedy_metrics["overall_agent_utilization"].keys()),

@@ -15,6 +15,7 @@ from src.evaluation import (
     SCHEDULE_FIELDNAMES,
     ScheduleEntry,
     accumulate_metric_section,
+    compute_agent_solved_priority_counts,
     compute_overall_agent_utilization,
     empty_metric_section,
     finalize_metric_section,
@@ -137,6 +138,7 @@ def compute_or_scheduler_metrics(
     scheduled_metrics = finalize_metric_section(scheduled_metrics)
     backlog_metrics = finalize_metric_section(backlog_metrics)
 
+    solved_priority_counts = compute_agent_solved_priority_counts(schedule, agents)
     agent_utilization: dict[str, dict[str, float | int]] = {}
     for agent in agents:
         capacity_minutes = replay_day_count * agent.capacity_min_per_day
@@ -145,6 +147,7 @@ def compute_or_scheduler_metrics(
             "workload_minutes": workload_minutes,
             "capacity_minutes": capacity_minutes,
             "utilization": round(workload_minutes / capacity_minutes, 4),
+            **solved_priority_counts[agent.agent_id],
         }
     overall_agent_utilization = compute_overall_agent_utilization(
         agents, replay_day_count, workload_minutes_per_agent

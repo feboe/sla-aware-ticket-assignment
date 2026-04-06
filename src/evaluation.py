@@ -157,6 +157,35 @@ def compute_overall_agent_utilization(
     }
 
 
+def compute_agent_solved_priority_counts(
+    schedule: list["ScheduleEntry"], agents: list[AgentRecord]
+) -> dict[str, dict[str, int]]:
+    """Count scheduled tickets per agent and priority using the final replay schedule."""
+
+    counts = {
+        agent.agent_id: {
+            "p1_tickets_solved": 0,
+            "p2_tickets_solved": 0,
+            "p3_tickets_solved": 0,
+            "p4_tickets_solved": 0,
+        }
+        for agent in agents
+    }
+    priority_key_by_label = {
+        "P1": "p1_tickets_solved",
+        "P2": "p2_tickets_solved",
+        "P3": "p3_tickets_solved",
+        "P4": "p4_tickets_solved",
+    }
+
+    for entry in schedule:
+        if entry.status != "scheduled":
+            continue
+        counts[entry.agent_id][priority_key_by_label[entry.priority]] += 1
+
+    return counts
+
+
 @dataclass(frozen=True)
 class ScheduleEntry:
     """Final schedule row for one ticket, either scheduled or left in backlog."""
