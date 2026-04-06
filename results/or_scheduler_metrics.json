@@ -4,58 +4,58 @@
   "horizon_start_ts": "2026-03-02 08:00:00",
   "horizon_end_ts": "2026-03-06 16:00:00",
   "total_tickets": 511,
-  "scheduled_tickets": 392,
-  "tickets_in_backlog": 119,
-  "total_first_response_tardiness_min": 293183.74,
-  "total_resolution_tardiness_min": 0.0,
+  "scheduled_tickets": 399,
+  "tickets_in_backlog": 112,
+  "total_first_response_tardiness_min": 254671.94,
+  "total_resolution_tardiness_min": 54.0,
   "scheduled": {
-    "ticket_count": 392,
-    "effort_min": 18045,
-    "first_response_tardiness_min": 87274.77,
-    "resolution_tardiness_min": 0.0,
-    "overdue_first_response_count": 125,
-    "overdue_resolution_count": 0,
+    "ticket_count": 399,
+    "effort_min": 18330,
+    "first_response_tardiness_min": 69416.4,
+    "resolution_tardiness_min": 54.0,
+    "overdue_first_response_count": 100,
+    "overdue_resolution_count": 1,
     "by_priority": {
       "P1": {
         "ticket_count": 24,
         "effort_min": 1845,
-        "first_response_tardiness_min": 1272.42,
-        "resolution_tardiness_min": 0.0,
-        "overdue_first_response_count": 15,
-        "overdue_resolution_count": 0
+        "first_response_tardiness_min": 2342.09,
+        "resolution_tardiness_min": 54.0,
+        "overdue_first_response_count": 12,
+        "overdue_resolution_count": 1
       },
       "P2": {
         "ticket_count": 92,
         "effort_min": 4740,
-        "first_response_tardiness_min": 3202.18,
+        "first_response_tardiness_min": 2137.18,
         "resolution_tardiness_min": 0.0,
         "overdue_first_response_count": 4,
         "overdue_resolution_count": 0
       },
       "P3": {
-        "ticket_count": 242,
-        "effort_min": 10335,
-        "first_response_tardiness_min": 32884.17,
+        "ticket_count": 241,
+        "effort_min": 10305,
+        "first_response_tardiness_min": 27451.13,
         "resolution_tardiness_min": 0.0,
-        "overdue_first_response_count": 75,
+        "overdue_first_response_count": 55,
         "overdue_resolution_count": 0
       },
       "P4": {
-        "ticket_count": 34,
-        "effort_min": 1125,
-        "first_response_tardiness_min": 49916.0,
+        "ticket_count": 42,
+        "effort_min": 1440,
+        "first_response_tardiness_min": 37486.0,
         "resolution_tardiness_min": 0.0,
-        "overdue_first_response_count": 31,
+        "overdue_first_response_count": 29,
         "overdue_resolution_count": 0
       }
     }
   },
   "backlog": {
-    "ticket_count": 119,
-    "effort_min": 4770,
-    "first_response_tardiness_min": 205908.97,
+    "ticket_count": 112,
+    "effort_min": 4485,
+    "first_response_tardiness_min": 185255.54,
     "resolution_tardiness_min": 0.0,
-    "overdue_first_response_count": 80,
+    "overdue_first_response_count": 74,
     "overdue_resolution_count": 0,
     "by_priority": {
       "P1": {
@@ -75,68 +75,68 @@
         "overdue_resolution_count": 0
       },
       "P3": {
-        "ticket_count": 11,
-        "effort_min": 585,
-        "first_response_tardiness_min": 169.97,
+        "ticket_count": 12,
+        "effort_min": 615,
+        "first_response_tardiness_min": 216.54,
         "resolution_tardiness_min": 0.0,
-        "overdue_first_response_count": 3,
+        "overdue_first_response_count": 4,
         "overdue_resolution_count": 0
       },
       "P4": {
-        "ticket_count": 107,
-        "effort_min": 4140,
-        "first_response_tardiness_min": 205739.0,
+        "ticket_count": 99,
+        "effort_min": 3825,
+        "first_response_tardiness_min": 185039.0,
         "resolution_tardiness_min": 0.0,
-        "overdue_first_response_count": 77,
+        "overdue_first_response_count": 70,
         "overdue_resolution_count": 0
       }
     }
   },
   "agent_utilization": {
     "GEN-01": {
-      "workload_minutes": 2295,
-      "capacity_minutes": 2400,
-      "utilization": 0.9563
-    },
-    "GEN-02": {
-      "workload_minutes": 2295,
-      "capacity_minutes": 2400,
-      "utilization": 0.9563
-    },
-    "GEN-03": {
-      "workload_minutes": 2325,
-      "capacity_minutes": 2400,
-      "utilization": 0.9688
-    },
-    "INT-01": {
-      "workload_minutes": 2325,
-      "capacity_minutes": 2400,
-      "utilization": 0.9688
-    },
-    "INT-02": {
-      "workload_minutes": 2250,
-      "capacity_minutes": 2400,
-      "utilization": 0.9375
-    },
-    "PS-01": {
-      "workload_minutes": 2325,
-      "capacity_minutes": 2400,
-      "utilization": 0.9688
-    },
-    "PS-02": {
       "workload_minutes": 2355,
       "capacity_minutes": 2400,
       "utilization": 0.9812
     },
-    "SIC-01": {
-      "workload_minutes": 1875,
+    "GEN-02": {
+      "workload_minutes": 2355,
       "capacity_minutes": 2400,
-      "utilization": 0.7812
+      "utilization": 0.9812
+    },
+    "GEN-03": {
+      "workload_minutes": 2385,
+      "capacity_minutes": 2400,
+      "utilization": 0.9938
+    },
+    "INT-01": {
+      "workload_minutes": 2340,
+      "capacity_minutes": 2400,
+      "utilization": 0.975
+    },
+    "INT-02": {
+      "workload_minutes": 2310,
+      "capacity_minutes": 2400,
+      "utilization": 0.9625
+    },
+    "PS-01": {
+      "workload_minutes": 2370,
+      "capacity_minutes": 2400,
+      "utilization": 0.9875
+    },
+    "PS-02": {
+      "workload_minutes": 2325,
+      "capacity_minutes": 2400,
+      "utilization": 0.9688
+    },
+    "SIC-01": {
+      "workload_minutes": 1890,
+      "capacity_minutes": 2400,
+      "utilization": 0.7875
     }
   },
-  "solve_call_count": 155,
-  "avg_solve_time_sec": 0.0133,
+  "solve_call_count": 154,
+  "avg_solve_time_sec": 0.012,
   "solver_status_counts": {
-    "OPTIMAL": 155
+    "OPTIMAL": 154
   }
 }

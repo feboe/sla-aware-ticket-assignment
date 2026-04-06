@@ -13,9 +13,7 @@ from src.preprocessing import SLOT_MINUTES
 
 FIRST_RESPONSE_WEIGHTS = {"P1": 1000, "P2": 200, "P3": 40, "P4": 10}
 RESOLUTION_WEIGHTS = {"P1": 100, "P2": 20, "P3": 4, "P4": 1}
-
-# TODO: go trough workflow and debug in notebook
-# TODO: improve objective to encourage work
+BACKLOG_WEIGHT = 0.5
 
 
 @dataclass(frozen=True)
@@ -141,6 +139,7 @@ def create_or_scheduler_model(
         objective_terms.append(
             RESOLUTION_WEIGHTS[ticket.priority] * resolution_tardiness[ticket.ticket_id]
         )
+        objective_terms.append(BACKLOG_WEIGHT * backlog[ticket.ticket_id])
 
     model.Minimize(sum(objective_terms))
     return model, OrSchedulerVariables(
