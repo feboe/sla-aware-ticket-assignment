@@ -49,7 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--num-workers",
         type=int,
-        default=8,
+        default=1,
         help="Number of CP-SAT search workers per scheduler solve.",
     )
     return parser

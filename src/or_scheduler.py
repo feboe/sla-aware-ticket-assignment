@@ -199,7 +199,7 @@ def run_or_scheduler_from_csv(
     ticket_csv_path: str | Path,
     agent_csv_path: str | Path,
     time_limit_sec: float = DEFAULT_OR_SCHEDULER_TIME_LIMIT_SEC,
-    num_workers: int = 8,
+    num_workers: int = 1,
 ) -> OrSchedulerResult:
     """Convenience wrapper for the OR scheduler CLI and tests."""
 

@@ -96,42 +96,74 @@
     "GEN-01": {
       "workload_minutes": 2385,
       "capacity_minutes": 2400,
-      "utilization": 0.9938
+      "utilization": 0.9938,
+      "p1_tickets_solved": 0,
+      "p2_tickets_solved": 23,
+      "p3_tickets_solved": 44,
+      "p4_tickets_solved": 4
     },
     "GEN-02": {
       "workload_minutes": 2370,
       "capacity_minutes": 2400,
-      "utilization": 0.9875
+      "utilization": 0.9875,
+      "p1_tickets_solved": 0,
+      "p2_tickets_solved": 24,
+      "p3_tickets_solved": 39,
+      "p4_tickets_solved": 2
     },
     "GEN-03": {
       "workload_minutes": 2370,
       "capacity_minutes": 2400,
-      "utilization": 0.9875
+      "utilization": 0.9875,
+      "p1_tickets_solved": 0,
+      "p2_tickets_solved": 12,
+      "p3_tickets_solved": 58,
+      "p4_tickets_solved": 4
     },
     "INT-01": {
       "workload_minutes": 2325,
       "capacity_minutes": 2400,
-      "utilization": 0.9688
+      "utilization": 0.9688,
+      "p1_tickets_solved": 4,
+      "p2_tickets_solved": 8,
+      "p3_tickets_solved": 16,
+      "p4_tickets_solved": 1
     },
     "INT-02": {
       "workload_minutes": 2280,
       "capacity_minutes": 2400,
-      "utilization": 0.95
+      "utilization": 0.95,
+      "p1_tickets_solved": 3,
+      "p2_tickets_solved": 6,
+      "p3_tickets_solved": 20,
+      "p4_tickets_solved": 3
     },
     "PS-01": {
       "workload_minutes": 2355,
       "capacity_minutes": 2400,
-      "utilization": 0.9812
+      "utilization": 0.9812,
+      "p1_tickets_solved": 5,
+      "p2_tickets_solved": 4,
+      "p3_tickets_solved": 30,
+      "p4_tickets_solved": 6
     },
     "PS-02": {
       "workload_minutes": 2340,
       "capacity_minutes": 2400,
-      "utilization": 0.975
+      "utilization": 0.975,
+      "p1_tickets_solved": 1,
+      "p2_tickets_solved": 5,
+      "p3_tickets_solved": 37,
+      "p4_tickets_solved": 5
     },
     "SIC-01": {
       "workload_minutes": 1395,
       "capacity_minutes": 2400,
-      "utilization": 0.5813
+      "utilization": 0.5813,
+      "p1_tickets_solved": 11,
+      "p2_tickets_solved": 10,
+      "p3_tickets_solved": 0,
+      "p4_tickets_solved": 0
     }
   },
   "overall_agent_utilization": {
