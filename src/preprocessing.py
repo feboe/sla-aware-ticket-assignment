@@ -1,7 +1,5 @@
 """Shared preprocessing utilities for ticket-assignment models and heuristics."""
 
-from __future__ import annotations
-
 import csv
 import math
 from dataclasses import dataclass

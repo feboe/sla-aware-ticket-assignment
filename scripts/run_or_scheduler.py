@@ -1,14 +1,12 @@
 """CLI entrypoint for running the OR scheduler benchmark."""
 
-from __future__ import annotations
-
 import argparse
 from typing import Any
 
+from src.or_reporting import write_or_scheduler_outputs
 from src.or_scheduler import (
     DEFAULT_OR_SCHEDULER_TIME_LIMIT_SEC,
     run_or_scheduler_from_csv,
-    write_or_scheduler_outputs,
 )
 
 KNOWN_SOLVER_STATUSES = ("OPTIMAL", "FEASIBLE", "UNKNOWN")

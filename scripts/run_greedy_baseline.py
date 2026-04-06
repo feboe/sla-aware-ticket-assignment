@@ -1,7 +1,5 @@
 """CLI entrypoint for running the greedy ticket-assignment baseline."""
 
-from __future__ import annotations
-
 import argparse
 
 from src.greedy_baseline import run_greedy_baseline_from_csv, write_baseline_outputs

@@ -1,7 +1,5 @@
 """Contract tests for the fixed agent-supply CSV and its demand compatibility."""
 
-from __future__ import annotations
-
 import csv
 import unittest
 from collections import Counter

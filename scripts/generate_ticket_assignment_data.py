@@ -5,8 +5,6 @@ created during business hours only, SLAs are derived from priority, and the
 output stays deterministic for a fixed random seed.
 """
 
-from __future__ import annotations
-
 import csv
 import random
 from dataclasses import dataclass, fields

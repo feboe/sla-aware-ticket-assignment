@@ -1,7 +1,5 @@
 """Preparation helpers for current-slot OR scheduler instances."""
 
-from __future__ import annotations
-
 import math
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -25,7 +23,6 @@ class OrSchedulerInstance:
 
     requested_decision_ts: datetime
     decision_ts: datetime
-    next_decision_ts: datetime
     horizon_end_ts: datetime
     horizon_slot_count: int
     tickets: tuple[TicketRecord, ...]
@@ -40,31 +37,6 @@ def parse_decision_timestamp(value: str | datetime) -> datetime:
     if isinstance(value, datetime):
         return value
     return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-
-
-def _next_business_day(day: date) -> date:
-    """Return the next weekday after ``day``."""
-
-    next_day = day + timedelta(days=1)
-    while next_day.weekday() >= 5:
-        next_day += timedelta(days=1)
-    return next_day
-
-
-def next_decision_timestamp(
-    decision_ts: datetime, agents: list[AgentRecord] | tuple[AgentRecord, ...]
-) -> datetime:
-    """Return the next rolling decision slot after ``decision_ts``."""
-
-    earliest_shift_start = min(agent.shift_start for agent in agents)
-    latest_shift_end = max(agent.shift_end for agent in agents)
-    next_slot = decision_ts + timedelta(minutes=SLOT_MINUTES)
-    day_end = combine_date_and_time(decision_ts.date(), latest_shift_end)
-    if next_slot < day_end:
-        return next_slot
-    return combine_date_and_time(
-        _next_business_day(decision_ts.date()), earliest_shift_start
-    )
 
 
 def _overlaps_committed_slots(
@@ -211,7 +183,6 @@ def prepare_or_scheduler_instance(
     return OrSchedulerInstance(
         requested_decision_ts=requested_decision_ts,
         decision_ts=rounded_decision_ts,
-        next_decision_ts=next_decision_timestamp(rounded_decision_ts, ordered_agents),
         horizon_end_ts=horizon_end_ts,
         horizon_slot_count=horizon_slot_count,
         tickets=active_tickets,

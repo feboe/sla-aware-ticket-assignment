@@ -1,7 +1,5 @@
 """Contract tests for the synthetic ticket-demand dataset generator."""
 
-from __future__ import annotations
-
 import unittest
 from collections import Counter
 from datetime import datetime

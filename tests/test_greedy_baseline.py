@@ -1,7 +1,5 @@
 """Tests for the online greedy baseline and its output contracts."""
 
-from __future__ import annotations
-
 import csv
 import json
 import tempfile
@@ -9,22 +7,20 @@ import unittest
 from datetime import datetime, time, timedelta
 from pathlib import Path
 
-import src.evaluation as evaluation
 import src.greedy_baseline as greedy_baseline
-import src.preprocessing as preprocessing
+from src.evaluation import SCHEDULE_FIELDNAMES, ScheduleEntry, tardiness_minutes
 from src.greedy_baseline import (
+    run_greedy_baseline,
+    run_greedy_baseline_from_csv,
+    write_baseline_outputs,
+)
+from src.preprocessing import (
     AgentRecord,
-    SCHEDULE_FIELDNAMES,
-    ScheduleEntry,
     SLOT_MINUTES,
     TicketRecord,
     ceil_to_slot,
     load_agents,
     load_tickets,
-    run_greedy_baseline,
-    run_greedy_baseline_from_csv,
-    tardiness_minutes,
-    write_baseline_outputs,
 )
 
 
@@ -53,19 +49,18 @@ class TestGreedyBaseline(unittest.TestCase):
         )
         self.assertEqual(self.metrics, second_run.metrics)
 
-    def test_shared_symbols_are_reexported_from_greedy_module(self) -> None:
-        self.assertIs(greedy_baseline.TicketRecord, preprocessing.TicketRecord)
-        self.assertIs(greedy_baseline.AgentRecord, preprocessing.AgentRecord)
-        self.assertIs(greedy_baseline.ScheduleEntry, evaluation.ScheduleEntry)
-        self.assertIs(greedy_baseline.ceil_to_slot, preprocessing.ceil_to_slot)
-        self.assertIs(greedy_baseline.load_tickets, preprocessing.load_tickets)
-        self.assertIs(greedy_baseline.load_agents, preprocessing.load_agents)
-        self.assertIs(greedy_baseline.tardiness_minutes, evaluation.tardiness_minutes)
-        self.assertEqual(greedy_baseline.SLOT_MINUTES, preprocessing.SLOT_MINUTES)
+    def test_explicit_public_api_and_schedule_row_contract(self) -> None:
         self.assertEqual(
-            greedy_baseline.SCHEDULE_FIELDNAMES, evaluation.SCHEDULE_FIELDNAMES
+            greedy_baseline.__all__,
+            [
+                "BaselineResult",
+                "ticket_sort_key",
+                "run_greedy_baseline",
+                "compute_metrics",
+                "write_baseline_outputs",
+                "run_greedy_baseline_from_csv",
+            ],
         )
-
         entry = ScheduleEntry(
             ticket_id="TKT-01",
             status="scheduled",

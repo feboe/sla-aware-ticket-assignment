@@ -5,8 +5,6 @@ serialization, and metric helpers live in dedicated modules so the baseline and
 the OR model can both depend on the same source of truth.
 """
 
-from __future__ import annotations
-
 import csv
 import json
 from collections import defaultdict
@@ -23,7 +21,6 @@ from src.evaluation import (
     compute_overall_agent_utilization,
     empty_metric_section,
     finalize_metric_section,
-    format_metric_value,
     format_timestamp,
     tardiness_minutes,
 )
@@ -32,15 +29,11 @@ from src.preprocessing import (
     SLOT_MINUTES,
     TicketRecord,
     business_days_inclusive,
-    ceil_to_slot,
     combine_date_and_time,
     day_slot_starts,
     is_agent_feasible,
     load_agents,
     load_tickets,
-    parse_pipe_set,
-    parse_timestamp,
-    round_effort_to_slots,
 )
 
 PRIORITY_RANK = {"P1": 0, "P2": 1, "P3": 2, "P4": 3}
@@ -354,3 +347,13 @@ def run_greedy_baseline_from_csv(
     tickets = load_tickets(ticket_csv_path)
     agents = load_agents(agent_csv_path)
     return run_greedy_baseline(tickets, agents)
+
+
+__all__ = [
+    "BaselineResult",
+    "ticket_sort_key",
+    "run_greedy_baseline",
+    "compute_metrics",
+    "write_baseline_outputs",
+    "run_greedy_baseline_from_csv",
+]

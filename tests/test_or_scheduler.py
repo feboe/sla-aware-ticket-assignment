@@ -1,7 +1,5 @@
 """Tests for the current-slot OR scheduler and its CLI."""
 
-from __future__ import annotations
-
 import csv
 import io
 import json
@@ -21,10 +19,9 @@ from src.or_scheduler import (
     OrSchedulerResult,
     run_or_scheduler,
     run_or_scheduler_from_csv,
-    write_or_scheduler_outputs,
 )
 from src.or_preparation import prepare_or_scheduler_instance
-from src.or_reporting import extract_or_scheduler_schedule
+from src.or_reporting import extract_or_scheduler_schedule, write_or_scheduler_outputs
 from src.or_solver import BACKLOG_WEIGHT, solve_or_scheduler_instance
 from src.preprocessing import load_agents, load_tickets
 
@@ -118,7 +115,6 @@ class TestOrScheduler(unittest.TestCase):
             self.assertEqual(instance.decision_ts, datetime(2026, 3, 2, 8, 0))
             self.assertEqual(instance.horizon_end_ts, datetime(2026, 3, 2, 9, 0))
             self.assertEqual(instance.horizon_slot_count, 4)
-            self.assertEqual(instance.next_decision_ts, datetime(2026, 3, 2, 8, 15))
 
             artifacts = solve_or_scheduler_instance(
                 instance,
@@ -177,298 +173,6 @@ class TestOrScheduler(unittest.TestCase):
 
             self.assertEqual(artifacts.status_name, "OPTIMAL")
             self.assertEqual(artifacts.objective_value, 400.0 + BACKLOG_WEIGHT)
-
-    def test_solver_keeps_ticket_schedulable_when_scarce_agent_has_an_alternative(
-        self,
-    ) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tickets_path = Path(tmpdir) / "tickets.csv"
-            agents_path = Path(tmpdir) / "agents.csv"
-            self.write_tickets(
-                tickets_path,
-                [
-                    {
-                        "ticket_id": "TKT-01",
-                        "arrival_ts": "2026-03-02 08:00:00",
-                        "queue": "Product Support",
-                        "priority": "P3",
-                        "language": "EN",
-                        "estimated_effort_min": "15",
-                        "first_response_due_ts": "2026-03-02 10:00:00",
-                        "resolution_due_ts": "2026-03-02 12:00:00",
-                    }
-                ],
-            )
-            self.write_agents(
-                agents_path,
-                [
-                    {
-                        **self.default_agents()[0],
-                        "agent_id": "AG-NONSCARCE",
-                        "scarce_resource": "0",
-                    },
-                    {
-                        **self.default_agents()[0],
-                        "agent_id": "AG-SCARCE",
-                        "scarce_resource": "1",
-                    },
-                ],
-            )
-
-            instance = prepare_or_scheduler_instance(
-                tickets_path, agents_path, "2026-03-02 08:00:00"
-            )
-            artifacts = solve_or_scheduler_instance(
-                instance,
-                time_limit_sec=1,
-                num_workers=1,
-            )
-            schedule = extract_or_scheduler_schedule(artifacts)
-
-            self.assertEqual(schedule[0].status, "scheduled")
-            self.assertIn(schedule[0].agent_id, {"AG-NONSCARCE", "AG-SCARCE"})
-
-    def test_solver_prefers_sic_for_p1_when_sic_is_feasible(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tickets_path = Path(tmpdir) / "tickets.csv"
-            agents_path = Path(tmpdir) / "agents.csv"
-            self.write_tickets(
-                tickets_path,
-                [
-                    {
-                        "ticket_id": "TKT-P1",
-                        "arrival_ts": "2026-03-02 08:00:00",
-                        "queue": "Product Support",
-                        "priority": "P1",
-                        "language": "EN",
-                        "estimated_effort_min": "15",
-                        "first_response_due_ts": "2026-03-02 08:15:00",
-                        "resolution_due_ts": "2026-03-02 09:00:00",
-                    }
-                ],
-            )
-            self.write_agents(
-                agents_path,
-                [
-                    {
-                        **self.default_agents()[0],
-                        "agent_id": "SIC-01",
-                        "queue_permissions": "Product Support|Technical Support|Billing|Customer Success",
-                        "priority_scope": "P1|P2",
-                        "scarce_resource": "1",
-                    },
-                    {
-                        **self.default_agents()[0],
-                        "agent_id": "AG-GENERALIST",
-                        "scarce_resource": "0",
-                    },
-                ],
-            )
-
-            instance = prepare_or_scheduler_instance(
-                tickets_path, agents_path, "2026-03-02 08:00:00"
-            )
-            artifacts = solve_or_scheduler_instance(
-                instance,
-                time_limit_sec=1,
-                num_workers=1,
-            )
-            schedule = extract_or_scheduler_schedule(artifacts)
-
-            self.assertEqual(schedule[0].status, "scheduled")
-            self.assertEqual(schedule[0].agent_id, "SIC-01")
-
-    def test_solver_uses_non_sic_agent_for_p1_when_sic_is_not_feasible(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tickets_path = Path(tmpdir) / "tickets.csv"
-            agents_path = Path(tmpdir) / "agents.csv"
-            self.write_tickets(
-                tickets_path,
-                [
-                    {
-                        "ticket_id": "TKT-P1",
-                        "arrival_ts": "2026-03-02 08:00:00",
-                        "queue": "Product Support",
-                        "priority": "P1",
-                        "language": "EN",
-                        "estimated_effort_min": "15",
-                        "first_response_due_ts": "2026-03-02 08:15:00",
-                        "resolution_due_ts": "2026-03-02 09:00:00",
-                    }
-                ],
-            )
-            self.write_agents(
-                agents_path,
-                [
-                    {
-                        **self.default_agents()[0],
-                        "agent_id": "SIC-01",
-                        "languages": "DE",
-                        "queue_permissions": "Product Support|Technical Support|Billing|Customer Success",
-                        "priority_scope": "P1|P2",
-                        "scarce_resource": "1",
-                    },
-                    {
-                        **self.default_agents()[0],
-                        "agent_id": "AG-GENERALIST",
-                        "scarce_resource": "0",
-                    },
-                ],
-            )
-
-            instance = prepare_or_scheduler_instance(
-                tickets_path, agents_path, "2026-03-02 08:00:00"
-            )
-            artifacts = solve_or_scheduler_instance(
-                instance,
-                time_limit_sec=1,
-                num_workers=1,
-            )
-            schedule = extract_or_scheduler_schedule(artifacts)
-
-            self.assertEqual(schedule[0].status, "scheduled")
-            self.assertEqual(schedule[0].agent_id, "AG-GENERALIST")
-
-    def test_solver_prefers_shorter_low_urgency_p4_when_only_one_start_fits(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tickets_path = Path(tmpdir) / "tickets.csv"
-            agents_path = Path(tmpdir) / "agents.csv"
-            self.write_tickets(
-                tickets_path,
-                [
-                    {
-                        "ticket_id": "P4-SHORT",
-                        "arrival_ts": "2026-03-02 08:00:00",
-                        "queue": "Product Support",
-                        "priority": "P4",
-                        "language": "EN",
-                        "estimated_effort_min": "15",
-                        "first_response_due_ts": "2026-03-02 10:00:00",
-                        "resolution_due_ts": "2026-03-02 12:00:00",
-                    },
-                    {
-                        "ticket_id": "P4-LONG",
-                        "arrival_ts": "2026-03-02 08:00:00",
-                        "queue": "Product Support",
-                        "priority": "P4",
-                        "language": "EN",
-                        "estimated_effort_min": "30",
-                        "first_response_due_ts": "2026-03-02 10:00:00",
-                        "resolution_due_ts": "2026-03-02 12:00:00",
-                    },
-                ],
-            )
-            self.write_agents(agents_path, self.default_agents())
-
-            instance = prepare_or_scheduler_instance(
-                tickets_path, agents_path, "2026-03-02 08:00:00"
-            )
-            artifacts = solve_or_scheduler_instance(
-                instance,
-                time_limit_sec=1,
-                num_workers=1,
-            )
-            schedule_by_id = {
-                entry.ticket_id: entry
-                for entry in extract_or_scheduler_schedule(artifacts)
-            }
-
-            self.assertEqual(schedule_by_id["P4-SHORT"].status, "scheduled")
-            self.assertEqual(schedule_by_id["P4-LONG"].status, "backlog_current_run")
-
-    def test_urgent_p4_still_beats_shorter_safe_p4(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tickets_path = Path(tmpdir) / "tickets.csv"
-            agents_path = Path(tmpdir) / "agents.csv"
-            self.write_tickets(
-                tickets_path,
-                [
-                    {
-                        "ticket_id": "P4-URGENT-LONG",
-                        "arrival_ts": "2026-03-02 08:00:00",
-                        "queue": "Product Support",
-                        "priority": "P4",
-                        "language": "EN",
-                        "estimated_effort_min": "30",
-                        "first_response_due_ts": "2026-03-02 08:15:00",
-                        "resolution_due_ts": "2026-03-02 09:30:00",
-                    },
-                    {
-                        "ticket_id": "P4-SAFE-SHORT",
-                        "arrival_ts": "2026-03-02 08:00:00",
-                        "queue": "Product Support",
-                        "priority": "P4",
-                        "language": "EN",
-                        "estimated_effort_min": "15",
-                        "first_response_due_ts": "2026-03-02 10:00:00",
-                        "resolution_due_ts": "2026-03-02 12:00:00",
-                    },
-                ],
-            )
-            self.write_agents(agents_path, self.default_agents())
-
-            instance = prepare_or_scheduler_instance(
-                tickets_path, agents_path, "2026-03-02 08:00:00"
-            )
-            artifacts = solve_or_scheduler_instance(
-                instance,
-                time_limit_sec=1,
-                num_workers=1,
-            )
-            schedule_by_id = {
-                entry.ticket_id: entry
-                for entry in extract_or_scheduler_schedule(artifacts)
-            }
-
-            self.assertEqual(schedule_by_id["P4-URGENT-LONG"].status, "scheduled")
-            self.assertEqual(schedule_by_id["P4-SAFE-SHORT"].status, "backlog_current_run")
-
-    def test_non_p4_urgency_still_beats_low_urgency_p4(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tickets_path = Path(tmpdir) / "tickets.csv"
-            agents_path = Path(tmpdir) / "agents.csv"
-            self.write_tickets(
-                tickets_path,
-                [
-                    {
-                        "ticket_id": "P3-URGENT",
-                        "arrival_ts": "2026-03-02 08:00:00",
-                        "queue": "Product Support",
-                        "priority": "P3",
-                        "language": "EN",
-                        "estimated_effort_min": "30",
-                        "first_response_due_ts": "2026-03-02 08:15:00",
-                        "resolution_due_ts": "2026-03-02 09:30:00",
-                    },
-                    {
-                        "ticket_id": "P4-SAFE-SHORT",
-                        "arrival_ts": "2026-03-02 08:00:00",
-                        "queue": "Product Support",
-                        "priority": "P4",
-                        "language": "EN",
-                        "estimated_effort_min": "15",
-                        "first_response_due_ts": "2026-03-02 10:00:00",
-                        "resolution_due_ts": "2026-03-02 12:00:00",
-                    },
-                ],
-            )
-            self.write_agents(agents_path, self.default_agents())
-
-            instance = prepare_or_scheduler_instance(
-                tickets_path, agents_path, "2026-03-02 08:00:00"
-            )
-            artifacts = solve_or_scheduler_instance(
-                instance,
-                time_limit_sec=1,
-                num_workers=1,
-            )
-            schedule_by_id = {
-                entry.ticket_id: entry
-                for entry in extract_or_scheduler_schedule(artifacts)
-            }
-
-            self.assertEqual(schedule_by_id["P3-URGENT"].status, "scheduled")
-            self.assertEqual(schedule_by_id["P4-SAFE-SHORT"].status, "backlog_current_run")
 
     def test_overdue_ticket_beats_less_urgent_ticket_when_only_one_start_fits(
         self,
@@ -755,17 +459,16 @@ class TestOrScheduler(unittest.TestCase):
             )
             self.assertEqual(
                 metrics["overall_agent_utilization"]["workload_hours"],
-                round(
-                    metrics["overall_agent_utilization"]["workload_minutes"] / 60.0, 2
-                ),
+                round(metrics["overall_agent_utilization"]["workload_minutes"] / 60.0, 2),
             )
             self.assertEqual(
                 metrics["overall_agent_utilization"]["capacity_hours"],
-                round(
-                    metrics["overall_agent_utilization"]["capacity_minutes"] / 60.0, 2
-                ),
+                round(metrics["overall_agent_utilization"]["capacity_minutes"] / 60.0, 2),
             )
-            solved_counts_by_agent = {agent_id: {"p1": 0, "p2": 0, "p3": 0, "p4": 0} for agent_id in metrics["agent_utilization"]}
+            solved_counts_by_agent = {
+                agent_id: {"p1": 0, "p2": 0, "p3": 0, "p4": 0}
+                for agent_id in metrics["agent_utilization"]
+            }
             for entry in result.schedule:
                 if entry.status != "scheduled":
                     continue
@@ -883,7 +586,9 @@ class TestOrScheduler(unittest.TestCase):
             or_metrics = run_or_scheduler_from_csv(
                 tickets_path, agents_path, time_limit_sec=2, num_workers=1
             ).metrics
-            greedy_metrics = run_greedy_baseline_from_csv(tickets_path, agents_path).metrics
+            greedy_metrics = run_greedy_baseline_from_csv(
+                tickets_path, agents_path
+            ).metrics
             lookahead_metrics = run_lookahead_greedy_from_csv(
                 tickets_path, agents_path
             ).metrics

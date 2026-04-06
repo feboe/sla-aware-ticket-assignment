@@ -1,7 +1,5 @@
 """Tests for the same-day look-ahead greedy ticket-assignment benchmark."""
 
-from __future__ import annotations
-
 import csv
 import json
 import tempfile
@@ -9,11 +7,11 @@ import unittest
 from datetime import datetime, time, timedelta
 from pathlib import Path
 
-from src.greedy_baseline import SCHEDULE_FIELDNAMES, run_greedy_baseline
+from src.evaluation import SCHEDULE_FIELDNAMES
+from src.greedy_baseline import run_greedy_baseline, write_baseline_outputs
 from src.lookahead_greedy import (
     run_lookahead_greedy,
     run_lookahead_greedy_from_csv,
-    write_lookahead_outputs,
 )
 from src.preprocessing import (
     AgentRecord,
@@ -156,7 +154,7 @@ class TestLookaheadGreedy(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             schedule_path = Path(tmpdir) / "schedule.csv"
             metrics_path = Path(tmpdir) / "metrics.json"
-            write_lookahead_outputs(self.result, schedule_path, metrics_path)
+            write_baseline_outputs(self.result, schedule_path, metrics_path)
 
             with schedule_path.open(newline="", encoding="utf-8") as handle:
                 reader = csv.DictReader(handle)

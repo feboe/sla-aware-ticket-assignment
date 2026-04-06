@@ -1,13 +1,9 @@
 """CLI entrypoint for running the look-ahead greedy ticket benchmark."""
 
-from __future__ import annotations
-
 import argparse
 
-from src.lookahead_greedy import (
-    run_lookahead_greedy_from_csv,
-    write_lookahead_outputs,
-)
+from src.greedy_baseline import write_baseline_outputs
+from src.lookahead_greedy import run_lookahead_greedy_from_csv
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -44,7 +40,7 @@ def main() -> None:
 
     args = build_parser().parse_args()
     result = run_lookahead_greedy_from_csv(args.tickets, args.agents)
-    write_lookahead_outputs(result, args.schedule_out, args.metrics_out)
+    write_baseline_outputs(result, args.schedule_out, args.metrics_out)
     print(
         "Wrote look-ahead greedy outputs to "
         f"{args.schedule_out} and {args.metrics_out}"

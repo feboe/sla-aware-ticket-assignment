@@ -1,7 +1,5 @@
 """Rolling current-slot OR scheduler for the synthetic ticket-assignment problem."""
 
-from __future__ import annotations
-
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -12,7 +10,6 @@ from src.or_reporting import (
     OrSchedulerResult,
     compute_or_scheduler_metrics,
     extract_or_scheduler_schedule,
-    write_or_scheduler_outputs,
 )
 from src.or_solver import solve_or_scheduler_instance
 from src.preprocessing import (
@@ -218,5 +215,4 @@ __all__ = [
     "OrSchedulerResult",
     "run_or_scheduler",
     "run_or_scheduler_from_csv",
-    "write_or_scheduler_outputs",
 ]

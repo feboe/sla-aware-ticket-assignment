@@ -1,7 +1,5 @@
 """Reporting helpers for current-slot OR scheduler results."""
 
-from __future__ import annotations
-
 import csv
 import json
 from dataclasses import dataclass

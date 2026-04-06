@@ -5,8 +5,6 @@ online baseline, but it can reserve the earliest feasible future slot later in
 the same day instead of only assigning work that can start immediately.
 """
 
-from __future__ import annotations
-
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -16,7 +14,6 @@ from src.greedy_baseline import (
     BaselineResult,
     compute_metrics,
     ticket_sort_key,
-    write_baseline_outputs,
 )
 from src.preprocessing import (
     AgentRecord,
@@ -223,16 +220,6 @@ def run_lookahead_greedy(
         final_horizon_end,
     )
     return BaselineResult(schedule=ordered_schedule, metrics=metrics)
-
-
-def write_lookahead_outputs(
-    result: BaselineResult,
-    schedule_output_path: str | Path,
-    metrics_output_path: str | Path,
-) -> None:
-    """Persist the look-ahead benchmark using the baseline output schema."""
-
-    write_baseline_outputs(result, schedule_output_path, metrics_output_path)
 
 
 def run_lookahead_greedy_from_csv(
