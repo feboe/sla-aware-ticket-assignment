@@ -14,6 +14,7 @@ from src.preprocessing import SLOT_MINUTES
 FIRST_RESPONSE_WEIGHTS = {"P1": 1000, "P2": 200, "P3": 40, "P4": 10}
 RESOLUTION_WEIGHTS = {"P1": 100, "P2": 20, "P3": 4, "P4": 1}
 BACKLOG_WEIGHT = 0.5
+SCARCE_AGENT_WEIGHT = 0.5
 
 
 @dataclass(frozen=True)
@@ -52,6 +53,7 @@ def create_or_scheduler_model(
     """Create the current-slot CP-SAT model for one scheduler decision."""
 
     model = cp_model.CpModel()
+    agent_by_id = {agent.agent_id: agent for agent in instance.agents}
     x: dict[tuple[str, str], cp_model.IntVar] = {}
     backlog: dict[str, cp_model.IntVar] = {}
     first_response_tardiness: dict[str, cp_model.IntVar] = {}
@@ -132,6 +134,7 @@ def create_or_scheduler_model(
 
     objective_terms: list[Any] = []
     for ticket in instance.tickets:
+        feasible_agent_ids = instance.feasible_agent_ids[ticket.ticket_id]
         objective_terms.append(
             FIRST_RESPONSE_WEIGHTS[ticket.priority]
             * first_response_tardiness[ticket.ticket_id]
@@ -140,6 +143,15 @@ def create_or_scheduler_model(
             RESOLUTION_WEIGHTS[ticket.priority] * resolution_tardiness[ticket.ticket_id]
         )
         objective_terms.append(BACKLOG_WEIGHT * backlog[ticket.ticket_id])
+        has_non_scarce_alternative = any(
+            not agent_by_id[agent_id].scarce_resource for agent_id in feasible_agent_ids
+        )
+        if has_non_scarce_alternative:
+            for agent_id in feasible_agent_ids:
+                if agent_by_id[agent_id].scarce_resource:
+                    objective_terms.append(
+                        SCARCE_AGENT_WEIGHT * x[(ticket.ticket_id, agent_id)]
+                    )
 
     model.Minimize(sum(objective_terms))
     return model, OrSchedulerVariables(
