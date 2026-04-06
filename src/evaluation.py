@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from scripts.generate_ticket_assignment_data import TIMESTAMP_FORMAT
+from src.preprocessing import AgentRecord
 
 SCHEDULE_FIELDNAMES = [
     "ticket_id",
@@ -129,6 +130,30 @@ def finalize_metric_section(section: dict[str, Any]) -> dict[str, Any]:
             }
             for priority, values in section["by_priority"].items()
         },
+    }
+
+
+def compute_overall_agent_utilization(
+    agents: list[AgentRecord],
+    replay_day_count: int,
+    workload_minutes_per_agent: dict[str, int],
+) -> dict[str, float | int]:
+    """Aggregate total workload and capacity across all agents."""
+
+    workload_minutes = sum(workload_minutes_per_agent.values())
+    capacity_minutes = sum(
+        replay_day_count * agent.capacity_min_per_day for agent in agents
+    )
+    utilization = 0.0
+    if capacity_minutes > 0:
+        utilization = round(workload_minutes / capacity_minutes, 4)
+
+    return {
+        "workload_minutes": workload_minutes,
+        "workload_hours": round(workload_minutes / 60.0, 2),
+        "capacity_minutes": capacity_minutes,
+        "capacity_hours": round(capacity_minutes / 60.0, 2),
+        "utilization": utilization,
     }
 
 

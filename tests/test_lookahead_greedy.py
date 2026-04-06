@@ -127,6 +127,7 @@ class TestLookaheadGreedy(unittest.TestCase):
             "scheduled",
             "backlog",
             "agent_utilization",
+            "overall_agent_utilization",
         }
         self.assertEqual(set(self.metrics.keys()), expected_keys)
         self.assertEqual(
@@ -136,6 +137,14 @@ class TestLookaheadGreedy(unittest.TestCase):
         self.assertEqual(
             self.metrics["tickets_in_backlog"],
             self.metrics["backlog"]["ticket_count"],
+        )
+
+    def test_metrics_top_level_shape_matches_greedy_baseline(self) -> None:
+        greedy_metrics = run_greedy_baseline(self.tickets, self.agents).metrics
+        self.assertEqual(set(self.metrics.keys()), set(greedy_metrics.keys()))
+        self.assertEqual(
+            set(self.metrics["overall_agent_utilization"].keys()),
+            set(greedy_metrics["overall_agent_utilization"].keys()),
         )
 
     def test_writer_creates_expected_outputs(self) -> None:
@@ -155,6 +164,8 @@ class TestLookaheadGreedy(unittest.TestCase):
                 self.assertEqual(metrics["total_tickets"], len(self.schedule))
                 self.assertIn("scheduled", metrics)
                 self.assertIn("backlog", metrics)
+                self.assertIn("agent_utilization", metrics)
+                self.assertIn("overall_agent_utilization", metrics)
 
     def test_lookahead_can_schedule_future_same_day_slot(self) -> None:
         agents = [

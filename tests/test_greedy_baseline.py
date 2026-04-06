@@ -187,6 +187,7 @@ class TestGreedyBaseline(unittest.TestCase):
             "scheduled",
             "backlog",
             "agent_utilization",
+            "overall_agent_utilization",
         }
         self.assertEqual(set(self.metrics.keys()), expected_keys)
         self.assertEqual(self.metrics["horizon_start_ts"], "2026-03-02 08:00:00")
@@ -286,6 +287,51 @@ class TestGreedyBaseline(unittest.TestCase):
                 round(workload_by_agent[agent_id] / capacity_minutes, 4),
             )
 
+    def test_overall_agent_utilization_matches_schedule(self) -> None:
+        total_workload_minutes = sum(
+            entry.duration_slots * SLOT_MINUTES
+            for entry in self.schedule
+            if entry.status == "scheduled"
+        )
+        total_capacity_minutes = sum(
+            self.metrics["replay_business_days"] * agent.capacity_min_per_day
+            for agent in self.agent_by_id.values()
+        )
+        overall = self.metrics["overall_agent_utilization"]
+
+        self.assertEqual(
+            set(overall.keys()),
+            {
+                "workload_minutes",
+                "workload_hours",
+                "capacity_minutes",
+                "capacity_hours",
+                "utilization",
+            },
+        )
+        self.assertEqual(overall["workload_minutes"], total_workload_minutes)
+        self.assertEqual(overall["workload_hours"], round(total_workload_minutes / 60.0, 2))
+        self.assertEqual(overall["capacity_minutes"], total_capacity_minutes)
+        self.assertEqual(overall["capacity_hours"], round(total_capacity_minutes / 60.0, 2))
+        self.assertEqual(
+            overall["utilization"],
+            round(total_workload_minutes / total_capacity_minutes, 4),
+        )
+        self.assertEqual(
+            overall["workload_minutes"],
+            sum(
+                metrics["workload_minutes"]
+                for metrics in self.metrics["agent_utilization"].values()
+            ),
+        )
+        self.assertEqual(
+            overall["capacity_minutes"],
+            sum(
+                metrics["capacity_minutes"]
+                for metrics in self.metrics["agent_utilization"].values()
+            ),
+        )
+
     def test_writer_creates_expected_outputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             schedule_path = Path(tmpdir) / "schedule.csv"
@@ -304,6 +350,7 @@ class TestGreedyBaseline(unittest.TestCase):
                 self.assertIn("scheduled", metrics)
                 self.assertIn("backlog", metrics)
                 self.assertIn("agent_utilization", metrics)
+                self.assertIn("overall_agent_utilization", metrics)
 
     def test_backlog_carries_across_days_when_ticket_cannot_fit(self) -> None:
         agents = [

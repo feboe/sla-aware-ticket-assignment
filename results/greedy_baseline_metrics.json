@@ -133,5 +133,12 @@
       "capacity_minutes": 2400,
       "utilization": 0.5813
     }
+  },
+  "overall_agent_utilization": {
+    "workload_minutes": 17820,
+    "workload_hours": 297.0,
+    "capacity_minutes": 19200,
+    "capacity_hours": 320.0,
+    "utilization": 0.9281
   }
 }

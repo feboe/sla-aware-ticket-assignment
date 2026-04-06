@@ -15,6 +15,7 @@ from src.evaluation import (
     SCHEDULE_FIELDNAMES,
     ScheduleEntry,
     accumulate_metric_section,
+    compute_overall_agent_utilization,
     empty_metric_section,
     finalize_metric_section,
     format_timestamp,
@@ -145,6 +146,9 @@ def compute_or_scheduler_metrics(
             "capacity_minutes": capacity_minutes,
             "utilization": round(workload_minutes / capacity_minutes, 4),
         }
+    overall_agent_utilization = compute_overall_agent_utilization(
+        agents, replay_day_count, workload_minutes_per_agent
+    )
 
     return {
         "replay_business_days": replay_day_count,
@@ -167,6 +171,7 @@ def compute_or_scheduler_metrics(
         "scheduled": scheduled_metrics,
         "backlog": backlog_metrics,
         "agent_utilization": agent_utilization,
+        "overall_agent_utilization": overall_agent_utilization,
     }
 
 

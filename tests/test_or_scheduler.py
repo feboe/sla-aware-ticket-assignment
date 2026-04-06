@@ -15,6 +15,8 @@ from unittest.mock import patch
 
 from scripts import run_or_scheduler as scheduler_cli
 from src.evaluation import SCHEDULE_FIELDNAMES
+from src.greedy_baseline import run_greedy_baseline_from_csv
+from src.lookahead_greedy import run_lookahead_greedy_from_csv
 from src.or_scheduler import (
     OrSchedulerResult,
     run_or_scheduler,
@@ -23,7 +25,7 @@ from src.or_scheduler import (
 )
 from src.or_preparation import prepare_or_scheduler_instance
 from src.or_reporting import extract_or_scheduler_schedule
-from src.or_solver import solve_or_scheduler_instance
+from src.or_solver import BACKLOG_WEIGHT, solve_or_scheduler_instance
 from src.preprocessing import load_agents, load_tickets
 
 TICKET_FIELDNAMES = [
@@ -174,7 +176,57 @@ class TestOrScheduler(unittest.TestCase):
             )
 
             self.assertEqual(artifacts.status_name, "OPTIMAL")
-            self.assertEqual(artifacts.objective_value, 400.0)
+            self.assertEqual(artifacts.objective_value, 400.0 + BACKLOG_WEIGHT)
+
+    def test_solver_prefers_non_scarce_agent_when_ticket_has_an_alternative(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tickets_path = Path(tmpdir) / "tickets.csv"
+            agents_path = Path(tmpdir) / "agents.csv"
+            self.write_tickets(
+                tickets_path,
+                [
+                    {
+                        "ticket_id": "TKT-01",
+                        "arrival_ts": "2026-03-02 08:00:00",
+                        "queue": "Product Support",
+                        "priority": "P3",
+                        "language": "EN",
+                        "estimated_effort_min": "15",
+                        "first_response_due_ts": "2026-03-02 10:00:00",
+                        "resolution_due_ts": "2026-03-02 12:00:00",
+                    }
+                ],
+            )
+            self.write_agents(
+                agents_path,
+                [
+                    {
+                        **self.default_agents()[0],
+                        "agent_id": "AG-NONSCARCE",
+                        "scarce_resource": "0",
+                    },
+                    {
+                        **self.default_agents()[0],
+                        "agent_id": "AG-SCARCE",
+                        "scarce_resource": "1",
+                    },
+                ],
+            )
+
+            instance = prepare_or_scheduler_instance(
+                tickets_path, agents_path, "2026-03-02 08:00:00"
+            )
+            artifacts = solve_or_scheduler_instance(
+                instance,
+                time_limit_sec=1,
+                num_workers=1,
+            )
+            schedule = extract_or_scheduler_schedule(artifacts)
+
+            self.assertEqual(schedule[0].status, "scheduled")
+            self.assertEqual(schedule[0].agent_id, "AG-NONSCARCE")
 
     def test_overdue_ticket_beats_less_urgent_ticket_when_only_one_start_fits(
         self,
@@ -435,6 +487,7 @@ class TestOrScheduler(unittest.TestCase):
             self.assertIn("scheduled", metrics)
             self.assertIn("backlog", metrics)
             self.assertIn("agent_utilization", metrics)
+            self.assertIn("overall_agent_utilization", metrics)
             self.assertIn("solve_call_count", metrics)
             self.assertIn("avg_solve_time_sec", metrics)
             self.assertIn("solver_status_counts", metrics)
@@ -443,6 +496,32 @@ class TestOrScheduler(unittest.TestCase):
             )
             self.assertEqual(
                 metrics["tickets_in_backlog"], metrics["backlog"]["ticket_count"]
+            )
+            self.assertEqual(
+                metrics["overall_agent_utilization"]["workload_minutes"],
+                sum(
+                    values["workload_minutes"]
+                    for values in metrics["agent_utilization"].values()
+                ),
+            )
+            self.assertEqual(
+                metrics["overall_agent_utilization"]["capacity_minutes"],
+                sum(
+                    values["capacity_minutes"]
+                    for values in metrics["agent_utilization"].values()
+                ),
+            )
+            self.assertEqual(
+                metrics["overall_agent_utilization"]["workload_hours"],
+                round(
+                    metrics["overall_agent_utilization"]["workload_minutes"] / 60.0, 2
+                ),
+            )
+            self.assertEqual(
+                metrics["overall_agent_utilization"]["capacity_hours"],
+                round(
+                    metrics["overall_agent_utilization"]["capacity_minutes"] / 60.0, 2
+                ),
             )
 
             with schedule_path.open(newline="", encoding="utf-8") as handle:
@@ -499,6 +578,72 @@ class TestOrScheduler(unittest.TestCase):
             self.assertEqual(
                 direct_result.metrics["tickets_in_backlog"],
                 csv_result.metrics["tickets_in_backlog"],
+            )
+
+    def test_shared_metric_blocks_match_greedy_and_lookahead_shape(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tickets_path = Path(tmpdir) / "tickets.csv"
+            agents_path = Path(tmpdir) / "agents.csv"
+            self.write_tickets(
+                tickets_path,
+                [
+                    {
+                        "ticket_id": "TKT-01",
+                        "arrival_ts": "2026-03-02 08:00:00",
+                        "queue": "Product Support",
+                        "priority": "P1",
+                        "language": "EN",
+                        "estimated_effort_min": "15",
+                        "first_response_due_ts": "2026-03-02 08:15:00",
+                        "resolution_due_ts": "2026-03-02 09:00:00",
+                    },
+                    {
+                        "ticket_id": "TKT-02",
+                        "arrival_ts": "2026-03-02 08:15:00",
+                        "queue": "Product Support",
+                        "priority": "P4",
+                        "language": "EN",
+                        "estimated_effort_min": "15",
+                        "first_response_due_ts": "2026-03-02 09:00:00",
+                        "resolution_due_ts": "2026-03-02 10:00:00",
+                    },
+                ],
+            )
+            self.write_agents(agents_path, self.default_agents())
+
+            or_metrics = run_or_scheduler_from_csv(
+                tickets_path, agents_path, time_limit_sec=2, num_workers=1
+            ).metrics
+            greedy_metrics = run_greedy_baseline_from_csv(tickets_path, agents_path).metrics
+            lookahead_metrics = run_lookahead_greedy_from_csv(
+                tickets_path, agents_path
+            ).metrics
+
+            shared_top_level_keys = {
+                "replay_business_days",
+                "slot_minutes",
+                "horizon_start_ts",
+                "horizon_end_ts",
+                "total_tickets",
+                "scheduled_tickets",
+                "tickets_in_backlog",
+                "total_first_response_tardiness_min",
+                "total_resolution_tardiness_min",
+                "scheduled",
+                "backlog",
+                "agent_utilization",
+                "overall_agent_utilization",
+            }
+            self.assertTrue(shared_top_level_keys.issubset(or_metrics.keys()))
+            self.assertEqual(set(greedy_metrics.keys()), shared_top_level_keys)
+            self.assertEqual(set(lookahead_metrics.keys()), shared_top_level_keys)
+            self.assertEqual(
+                set(or_metrics["overall_agent_utilization"].keys()),
+                set(greedy_metrics["overall_agent_utilization"].keys()),
+            )
+            self.assertEqual(
+                set(or_metrics["overall_agent_utilization"].keys()),
+                set(lookahead_metrics["overall_agent_utilization"].keys()),
             )
 
     def test_cli_prints_solver_summary(self) -> None:
