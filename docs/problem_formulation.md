@@ -114,6 +114,12 @@ with the following priority-to-weight mappings:
 - $W^{FR}(P1)=1000,\; W^{FR}(P2)=200,\; W^{FR}(P3)=40,\; W^{FR}(P4)=10$
 - $W^{RES}(P1)=100,\; W^{RES}(P2)=20,\; W^{RES}(P3)=4,\; W^{RES}(P4)=1$
 
+These coefficients are manually chosen heuristic weights, not empirically
+estimated cost parameters. They encode a clear business hierarchy in which
+$P1 > P2 > P3 > P4$ is enforced strongly, first-response tardiness is valued
+more heavily than resolution tardiness, and the backlog term remains only a
+small secondary penalty.
+
 ### Derived Quantities
 
 The tardiness constraints also use a few derived helper terms:
@@ -226,6 +232,9 @@ Important notes about the current objective:
 This means the model values urgent tickets through explicit first-response and
 resolution tardiness, while still slightly preferring an immediate feasible
 start over an otherwise equal deferral.
+
+The objective should therefore be read as a compact encoding of business
+priorities under overload, not as a calibrated estimate of real monetary cost.
 
 ## Data Mapping
 
