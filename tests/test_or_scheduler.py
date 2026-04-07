@@ -116,7 +116,7 @@ class TestOrScheduler(unittest.TestCase):
             self.assertFalse(hasattr(instance, "allowed_start_indices"))
             self.assertEqual(instance.decision_ts, datetime(2026, 3, 2, 8, 0))
             self.assertEqual(instance.horizon_end_ts, datetime(2026, 3, 2, 9, 0))
-            self.assertEqual(instance.horizon_slot_count, 4)
+            self.assertEqual(instance.horizon_slot_count, 12)
 
             artifacts = solve_or_scheduler_instance(
                 instance,
@@ -174,7 +174,7 @@ class TestOrScheduler(unittest.TestCase):
             )
 
             self.assertEqual(artifacts.status_name, "OPTIMAL")
-            self.assertEqual(artifacts.objective_value, 400.0 + BACKLOG_WEIGHT)
+            self.assertEqual(artifacts.objective_value, 1200.0 + BACKLOG_WEIGHT)
 
     def test_overdue_ticket_beats_less_urgent_ticket_when_only_one_start_fits(
         self,

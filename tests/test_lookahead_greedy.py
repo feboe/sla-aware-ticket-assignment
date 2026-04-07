@@ -7,8 +7,8 @@ import unittest
 from datetime import datetime, time, timedelta
 from pathlib import Path
 
-from src.evaluation import SCHEDULE_FIELDNAMES
-from src.greedy_baseline import run_greedy_baseline, write_baseline_outputs
+from src.evaluation import SCHEDULE_FIELDNAMES, write_schedule_outputs
+from src.greedy_baseline import run_greedy_baseline
 from src.lookahead_greedy import (
     run_lookahead_greedy,
     run_lookahead_greedy_from_csv,
@@ -19,6 +19,7 @@ from src.preprocessing import (
     TicketRecord,
     load_agents,
     load_tickets,
+    round_effort_to_slots,
 )
 
 
@@ -154,7 +155,12 @@ class TestLookaheadGreedy(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             schedule_path = Path(tmpdir) / "schedule.csv"
             metrics_path = Path(tmpdir) / "metrics.json"
-            write_baseline_outputs(self.result, schedule_path, metrics_path)
+            write_schedule_outputs(
+                self.result.schedule,
+                self.result.metrics,
+                schedule_path,
+                metrics_path,
+            )
 
             with schedule_path.open(newline="", encoding="utf-8") as handle:
                 reader = csv.DictReader(handle)
@@ -192,7 +198,7 @@ class TestLookaheadGreedy(unittest.TestCase):
                 priority="P1",
                 language="EN",
                 estimated_effort_min=15,
-                duration_slots=1,
+                duration_slots=round_effort_to_slots(15),
                 first_response_due_ts=datetime(2026, 3, 2, 8, 15, 0),
                 resolution_due_ts=datetime(2026, 3, 2, 8, 45, 0),
             ),
@@ -204,7 +210,7 @@ class TestLookaheadGreedy(unittest.TestCase):
                 priority="P4",
                 language="EN",
                 estimated_effort_min=15,
-                duration_slots=1,
+                duration_slots=round_effort_to_slots(15),
                 first_response_due_ts=datetime(2026, 3, 2, 8, 30, 0),
                 resolution_due_ts=datetime(2026, 3, 2, 9, 0, 0),
             ),
@@ -216,7 +222,7 @@ class TestLookaheadGreedy(unittest.TestCase):
                 priority="P2",
                 language="EN",
                 estimated_effort_min=30,
-                duration_slots=2,
+                duration_slots=round_effort_to_slots(30),
                 first_response_due_ts=datetime(2026, 3, 2, 8, 45, 0),
                 resolution_due_ts=datetime(2026, 3, 2, 9, 30, 0),
             ),
@@ -252,7 +258,7 @@ class TestLookaheadGreedy(unittest.TestCase):
                 priority="P1",
                 language="EN",
                 estimated_effort_min=30,
-                duration_slots=2,
+                duration_slots=round_effort_to_slots(30),
                 first_response_due_ts=datetime(2026, 3, 2, 8, 15, 0),
                 resolution_due_ts=datetime(2026, 3, 2, 8, 45, 0),
             ),
@@ -264,7 +270,7 @@ class TestLookaheadGreedy(unittest.TestCase):
                 priority="P3",
                 language="EN",
                 estimated_effort_min=15,
-                duration_slots=1,
+                duration_slots=round_effort_to_slots(15),
                 first_response_due_ts=datetime(2026, 3, 2, 8, 30, 0),
                 resolution_due_ts=datetime(2026, 3, 2, 9, 0, 0),
             ),
@@ -297,7 +303,7 @@ class TestLookaheadGreedy(unittest.TestCase):
                 priority="P1",
                 language="EN",
                 estimated_effort_min=15,
-                duration_slots=1,
+                duration_slots=round_effort_to_slots(15),
                 first_response_due_ts=datetime(2026, 3, 2, 8, 15, 0),
                 resolution_due_ts=datetime(2026, 3, 2, 8, 45, 0),
             ),
@@ -309,7 +315,7 @@ class TestLookaheadGreedy(unittest.TestCase):
                 priority="P3",
                 language="EN",
                 estimated_effort_min=15,
-                duration_slots=1,
+                duration_slots=round_effort_to_slots(15),
                 first_response_due_ts=datetime(2026, 3, 2, 8, 45, 0),
                 resolution_due_ts=datetime(2026, 3, 2, 9, 0, 0),
             ),
@@ -321,7 +327,7 @@ class TestLookaheadGreedy(unittest.TestCase):
                 priority="P4",
                 language="EN",
                 estimated_effort_min=15,
-                duration_slots=1,
+                duration_slots=round_effort_to_slots(15),
                 first_response_due_ts=datetime(2026, 3, 2, 9, 0, 0),
                 resolution_due_ts=datetime(2026, 3, 2, 9, 15, 0),
             ),
@@ -356,7 +362,7 @@ class TestLookaheadGreedy(unittest.TestCase):
                 priority="P1",
                 language="EN",
                 estimated_effort_min=15,
-                duration_slots=1,
+                duration_slots=round_effort_to_slots(15),
                 first_response_due_ts=datetime(2026, 3, 2, 8, 15, 0),
                 resolution_due_ts=datetime(2026, 3, 2, 8, 45, 0),
             ),
@@ -368,7 +374,7 @@ class TestLookaheadGreedy(unittest.TestCase):
                 priority="P3",
                 language="EN",
                 estimated_effort_min=15,
-                duration_slots=1,
+                duration_slots=round_effort_to_slots(15),
                 first_response_due_ts=datetime(2026, 3, 2, 8, 30, 0),
                 resolution_due_ts=datetime(2026, 3, 2, 8, 45, 0),
             ),
@@ -380,7 +386,7 @@ class TestLookaheadGreedy(unittest.TestCase):
                 priority="P2",
                 language="EN",
                 estimated_effort_min=15,
-                duration_slots=1,
+                duration_slots=round_effort_to_slots(15),
                 first_response_due_ts=datetime(2026, 3, 2, 8, 45, 0),
                 resolution_due_ts=datetime(2026, 3, 2, 9, 0, 0),
             ),
@@ -424,7 +430,7 @@ class TestLookaheadGreedy(unittest.TestCase):
                 priority="P2",
                 language="EN",
                 estimated_effort_min=15,
-                duration_slots=1,
+                duration_slots=round_effort_to_slots(15),
                 first_response_due_ts=datetime(2026, 3, 2, 8, 30, 0),
                 resolution_due_ts=datetime(2026, 3, 2, 9, 0, 0),
             )
@@ -455,7 +461,7 @@ class TestLookaheadGreedy(unittest.TestCase):
                 priority="P1",
                 language="EN",
                 estimated_effort_min=15,
-                duration_slots=1,
+                duration_slots=round_effort_to_slots(15),
                 first_response_due_ts=datetime(2026, 3, 2, 8, 15, 0),
                 resolution_due_ts=datetime(2026, 3, 2, 8, 45, 0),
             ),
@@ -467,7 +473,7 @@ class TestLookaheadGreedy(unittest.TestCase):
                 priority="P4",
                 language="EN",
                 estimated_effort_min=15,
-                duration_slots=1,
+                duration_slots=round_effort_to_slots(15),
                 first_response_due_ts=datetime(2026, 3, 2, 8, 30, 0),
                 resolution_due_ts=datetime(2026, 3, 2, 9, 0, 0),
             ),
@@ -479,7 +485,7 @@ class TestLookaheadGreedy(unittest.TestCase):
                 priority="P4",
                 language="EN",
                 estimated_effort_min=15,
-                duration_slots=1,
+                duration_slots=round_effort_to_slots(15),
                 first_response_due_ts=datetime(2026, 3, 2, 8, 45, 0),
                 resolution_due_ts=datetime(2026, 3, 2, 9, 15, 0),
             ),
@@ -491,7 +497,7 @@ class TestLookaheadGreedy(unittest.TestCase):
                 priority="P2",
                 language="EN",
                 estimated_effort_min=45,
-                duration_slots=3,
+                duration_slots=round_effort_to_slots(45),
                 first_response_due_ts=datetime(2026, 3, 2, 8, 45, 0),
                 resolution_due_ts=datetime(2026, 3, 2, 10, 0, 0),
             ),

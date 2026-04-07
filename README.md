@@ -20,7 +20,23 @@ For a deeper look at the OR approach, start with
 [Rolling Policy](docs/problem_formulation.md#rolling-policy), and
 [Objective](docs/problem_formulation.md#objective) in the problem formulation.
 
+## Why This Matters
+
+- This project turns a realistic operations problem into a reproducible OR
+  benchmark: overloaded support demand, limited agent supply, and competing SLA
+  priorities.
+- It compares simple online heuristics against a rolling CP-SAT scheduler in
+  the same replay environment, so the trade-offs are easy to explain and verify.
+- The key lesson is that maximizing throughput is not the same as protecting the
+  most urgent tickets. In this benchmark, the OR scheduler is valuable because
+  it makes that business trade-off explicit instead of relying on raw volume
+  alone.
+- As a first OR portfolio project, the repo is designed to show the full loop:
+  problem framing, synthetic data design, heuristic baselines, optimization
+  modeling, and reproducible evaluation.
+
 ## Key Result
+
 - 5-minute slots are the practical default: they preserve most of the timing
   detail without turning the benchmark into a one-minute dispatch simulation.
 - `lookahead_greedy` maximizes scheduled volume and overall utilization.
@@ -48,7 +64,7 @@ preference. For the mathematical rationale behind that choice, see
 [Objective](docs/problem_formulation.md#objective).
 
 The OR scheduler is also operationally lightweight in this setup: it solved 342
-rolling decisions at 5-minute granularity with an average solve time of 0.0017
+rolling decisions at 5-minute granularity with an average solve time of 0.0016
 seconds, and all solves finished with `OPTIMAL` status.
 
 ## Why 5-Minute Slots
@@ -79,6 +95,7 @@ If you want the dataset design details behind the benchmark, start with
 [Agent Supply Dataset](docs/agent_supply_dataset.md).
 
 ## Benchmark Policies
+
 - `greedy_baseline`: only considers tickets that are already open and agents
   that are idle now. It assigns tickets in deterministic urgency order and does
   not reserve future capacity.
@@ -88,7 +105,23 @@ If you want the dataset design details behind the benchmark, start with
   considers only tickets already open at that solve, and commits only starts in
   the current slot before re-optimizing later.
 
+## Setup
+
+This repo targets Python `3.10+`.
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python -m unittest discover -s tests -p "test_*.py"
+```
+
+If you want to reproduce the published benchmark outputs from a fresh clone,
+run the data generator once and then execute the three benchmark scripts below.
+
 ## Generate Tickets
+
 ```powershell
 python scripts\generate_ticket_assignment_data.py
 ```
@@ -96,34 +129,41 @@ python scripts\generate_ticket_assignment_data.py
 This writes `data/tickets.csv`.
 
 ## Validate The Project
+
 ```powershell
 python -m unittest discover -s tests -p "test_*.py"
 ```
 
 ## Run The Greedy Baseline
+
 ```powershell
 python scripts\run_greedy_baseline.py
 ```
 
 This writes:
+
 - `results/greedy_baseline_schedule.csv`
 - `results/greedy_baseline_metrics.json`
 
 ## Run The Look-Ahead Greedy Benchmark
+
 ```powershell
 python scripts\run_lookahead_greedy.py
 ```
 
 This writes:
+
 - `results/lookahead_greedy_schedule.csv`
 - `results/lookahead_greedy_metrics.json`
 
 ## Run The OR Scheduler
+
 ```powershell
 python scripts\run_or_scheduler.py
 ```
 
 This writes:
+
 - `results/or_scheduler_schedule.csv`
 - `results/or_scheduler_metrics.json`
 
@@ -134,15 +174,18 @@ backlog term. It is not a full future-slot planner.
 ## Outputs
 
 All three runners write:
+
 - one schedule CSV in `results/`
 - one metrics JSON in `results/`
 
 The final replay schedule uses the shared schema from `src/evaluation.py` and
 persists only:
+
 - `scheduled`
 - `backlog_end`
 
 All three metrics JSON files share the same core structure:
+
 - top-level replay summary fields such as `replay_business_days`,
   `slot_minutes`, `horizon_start_ts`, `horizon_end_ts`, `total_tickets`,
   `scheduled_tickets`, and `tickets_in_backlog`
@@ -150,11 +193,26 @@ All three metrics JSON files share the same core structure:
 - per-agent `agent_utilization` plus `overall_agent_utilization`
 
 The OR scheduler adds solver-specific diagnostics:
+
 - `solve_call_count`
 - `avg_solve_time_sec`
 - `solver_status_counts`
 
+## Limitations
+
+- The OR scheduler is a rolling current-slot model, not a full-day planner. It
+  decides what can start now and re-optimizes every 5 minutes.
+- Future ticket arrivals are unknown inside any single solve, so the model makes decisions with current information only.
+- Deferred work is penalized with a remaining-day horizon proxy, and end-of-run
+  backlog metrics are measured at the final replay horizon end.
+- `required_skill_tags` and agent `skill_tags` are documented in the datasets
+  but are still metadata in the current version, not hard matching constraints.
+- The benchmark is synthetic and portfolio-oriented by design: it aims to be
+  explainable and reproducible rather than to capture every edge case of a real
+  support organization.
+
 ## Documentation
+
 - [Problem Formulation](docs/problem_formulation.md)
 - [Ticket Demand Dataset](docs/ticket_demand_dataset.md)
 - [Agent Supply Dataset](docs/agent_supply_dataset.md)

@@ -2,7 +2,7 @@
 
 import argparse
 
-from src.greedy_baseline import write_baseline_outputs
+from src.evaluation import write_schedule_outputs
 from src.lookahead_greedy import run_lookahead_greedy_from_csv
 
 
@@ -40,7 +40,12 @@ def main() -> None:
 
     args = build_parser().parse_args()
     result = run_lookahead_greedy_from_csv(args.tickets, args.agents)
-    write_baseline_outputs(result, args.schedule_out, args.metrics_out)
+    write_schedule_outputs(
+        result.schedule,
+        result.metrics,
+        args.schedule_out,
+        args.metrics_out,
+    )
     print(
         "Wrote look-ahead greedy outputs to "
         f"{args.schedule_out} and {args.metrics_out}"
