@@ -2,13 +2,22 @@
 
 ## Use Case
 
-This file defines a fixed support-team roster that can be paired with the ticket-demand dataset for later assignment and optimization work.
+This file defines a fixed support-team roster that can be paired with the
+ticket-demand dataset for assignment benchmarks and optimization experiments.
 
-The agent roster is intentionally stored as a separate CSV so that supply and demand remain distinct inputs.
+The agent roster is intentionally stored as a separate CSV so that supply and
+demand remain distinct inputs.
 
 ## File
 
 - `data/agents.csv`
+
+## Current Roster Snapshot
+
+- `8` agents total
+- Uniform shift template: `08:00` to `16:00`
+- Uniform daily capacity: `480` minutes per agent
+- Only `SIC-01` is marked with `scarce_resource=1`
 
 ## Schema
 
@@ -28,21 +37,35 @@ The agent roster is intentionally stored as a separate CSV so that supply and de
 ## Team Design
 
 - `3` generalists:
-  bilingual (`EN|DE`), focused on `Account Access`, `Billing`, and standard `Product Support`, suitable for `P2-P4`
+  bilingual (`EN|DE`), focused on `Account Access`, `Billing`, and
+  `Product Support`, suitable for `P2-P4`
 - `2` product specialists:
-  dedicated to `Product Support`, both able to handle `P1-P4`, one bilingual and one English-only
+  dedicated to `Product Support`, both able to handle `P1-P4`, one bilingual
+  and one English-only
 - `2` integration specialists:
-  dedicated to `Integrations/API`, both able to handle `P1-P4`, one bilingual and one English-only
+  dedicated to `Integrations/API`, both able to handle `P1-P4`, one bilingual
+  and one English-only
 - `1` senior incident coordinator:
-  bilingual, cross-queue escalation resource focused on `P1/P2`, marked as scarce
+  bilingual, cross-queue escalation resource focused on `P1/P2`, marked as
+  scarce
 
 ## Interpretation Notes
 
-- Queue permissions, languages, and priority scope are the main hard feasibility fields for the first version.
-- `skill_tags` are still useful metadata, but they should not be treated as strict matching rules until the modeling layer needs them.
+- The current loaders and schedulers use `queue_permissions`, `languages`,
+  `priority_scope`, `shift_start`, `shift_end`, `capacity_min_per_day`, and
+  `scarce_resource`.
+- Queue permissions, languages, and priority scope are the main hard
+  feasibility fields for the current version.
+- `agent_role` and `skill_tags` are useful metadata, but they are not treated
+  as strict matching rules by the current scheduling logic.
 - The current role-aligned skill vocabulary is:
   `account_access`, `billing`, `product_support`, `integrations_api`,
   `api_specialist`, `incident_escalation`, `product_specialist`,
   `integration_specialist`, `enterprise_handling`, and `de_language`.
-- `incident_escalation` is reserved for the senior incident coordinator, while `product_specialist` and `integration_specialist` distinguish queue-specific specialist work.
-- The bilingual integration specialist exists to cover the current German-language integration demand in the ticket dataset.
+- `incident_escalation` is reserved for the senior incident coordinator, while
+  `product_specialist` and `integration_specialist` distinguish queue-specific
+  specialist work.
+- German-language coverage exists across all queues, including `INT-01` for the
+  current German-language integration demand.
+- Under the current static eligibility rules, every synthetic ticket generated
+  by the project has at least one feasible agent in this roster.

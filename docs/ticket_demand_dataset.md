@@ -2,9 +2,17 @@
 
 ## Use Case
 
-This dataset represents incoming support-ticket demand for a service-operations environment. It is synthetic by design and intended for experimentation, portfolio work, and later optimization modeling.
+This dataset represents incoming support-ticket demand for a service-operations
+environment. It is synthetic by design and intended for experimentation,
+benchmarking, and later optimization modeling.
 
-This ticket file does not include agent supply, staffing, or assignment outcomes. Each row is a demand-side record only. Agent supply is defined separately in `data/agents.csv`.
+This ticket file does not include agent supply, staffing, or assignment
+outcomes. Each row is a demand-side record only. Agent supply is defined
+separately in `data/agents.csv`.
+
+## File
+
+- `data/tickets.csv`
 
 ## Business Story
 
@@ -39,9 +47,19 @@ This ticket file does not include agent supply, staffing, or assignment outcomes
 ## Generation Rules
 
 - Random seed is fixed at `42` for reproducibility.
+- The current generator creates `5` business days starting on Monday
+  `2026-03-02 08:00:00`.
 - Business calendar is Monday to Friday, `08:00` to `16:00`.
-- Daily ticket volume varies between `80` and `120`.
-- Arrivals are continuous within the shift and mildly concentrated in late morning.
+- Daily ticket volume varies between `80` and `120`, with Tuesday and Wednesday
+  allowed to run slightly busier inside that range.
+- Arrivals are continuous within the shift and mildly concentrated in late
+  morning.
+- Priority is sampled from queue-specific base weights, then adjusted by
+  customer tier, VIP status, reopened status, and channel.
+- Complexity is sampled from queue-specific weights, with extra mass on harder
+  work for urgent or reopened tickets.
+- Effort is sampled from queue- and complexity-specific ranges, with modest
+  uplifts for some urgent and VIP cases.
 - SLA deadlines skip weekends and non-business hours.
 - Queue-specific complexity and effort ranges are used to keep records plausible.
 - `required_skill_tags` use a compact role-aligned vocabulary:
@@ -62,8 +80,18 @@ The generated dataset should satisfy the following checks:
 
 ## Interpretation Notes
 
-- `required_skill_tags` is kept in the dataset even before agent data exists because it makes later assignment logic explicit.
-- `incident_escalation` marks `P1` work, while `product_specialist` and `integration_specialist` identify queue-specific complex work.
+- The current schedulers only read the subset needed for assignment:
+  `ticket_id`, `arrival_ts`, `queue`, `priority`, `language`,
+  `estimated_effort_min`, `first_response_due_ts`, and `resolution_due_ts`.
+- `release_ts` and `duration_slots` are derived preprocessing fields, not CSV
+  columns. `release_ts` is `arrival_ts` rounded up to the next 15-minute slot,
+  and `duration_slots` is `estimated_effort_min` rounded up to 15-minute slots.
+- `required_skill_tags` is kept in the dataset even before agent data exists
+  because it makes later assignment logic explicit, even though the current
+  schedulers do not use it as a hard constraint.
+- `incident_escalation` marks `P1` work, while `product_specialist` and
+  `integration_specialist` identify queue-specific complex work.
 - `ticket_subject` is descriptive metadata, not a modeling key.
-- The dataset is designed to be easy to explain in a portfolio setting rather than to mimic every edge case of a real support organization.
+- The dataset is designed to be easy to explain in a portfolio setting rather
+  than to mimic every edge case of a real support organization.
 - The companion agent-supply file is documented in [agent_supply_dataset.md](agent_supply_dataset.md).
