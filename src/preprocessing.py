@@ -7,7 +7,7 @@ from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
-SLOT_MINUTES = 15
+SLOT_MINUTES = 5
 
 
 @dataclass(frozen=True)
@@ -53,7 +53,7 @@ def parse_pipe_set(value: str) -> frozenset[str]:
 
 
 def ceil_to_slot(ts: datetime) -> datetime:
-    """Round a timestamp up to the next 15-minute decision slot."""
+    """Round a timestamp up to the next decision slot."""
 
     slot_floor = ts.replace(
         minute=(ts.minute // SLOT_MINUTES) * SLOT_MINUTES,
@@ -66,7 +66,7 @@ def ceil_to_slot(ts: datetime) -> datetime:
 
 
 def round_effort_to_slots(estimated_effort_min: int) -> int:
-    """Convert effort minutes into a non-zero number of 15-minute slots."""
+    """Convert effort minutes into a non-zero number of decision slots."""
 
     return max(1, math.ceil(estimated_effort_min / SLOT_MINUTES))
 
@@ -92,7 +92,7 @@ def business_days_inclusive(start_day: date, end_day: date) -> list[date]:
 def day_slot_starts(
     day: date, earliest_shift_start: time, latest_shift_end: time
 ) -> list[datetime]:
-    """Enumerate 15-minute slot starts across the active business window."""
+    """Enumerate slot starts across the active business window."""
 
     slot_starts: list[datetime] = []
     current = combine_date_and_time(day, earliest_shift_start)

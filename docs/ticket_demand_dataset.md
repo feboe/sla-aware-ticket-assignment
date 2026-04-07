@@ -84,8 +84,8 @@ The generated dataset should satisfy the following checks:
   `ticket_id`, `arrival_ts`, `queue`, `priority`, `language`,
   `estimated_effort_min`, `first_response_due_ts`, and `resolution_due_ts`.
 - `release_ts` and `duration_slots` are derived preprocessing fields, not CSV
-  columns. `release_ts` is `arrival_ts` rounded up to the next 15-minute slot,
-  and `duration_slots` is `estimated_effort_min` rounded up to 15-minute slots.
+  columns. `release_ts` is `arrival_ts` rounded up to the next 5-minute slot,
+  and `duration_slots` is `estimated_effort_min` rounded up to 5-minute slots.
 - `required_skill_tags` is kept in the dataset even before agent data exists
   because it makes later assignment logic explicit, even though the current
   schedulers do not use it as a hard constraint.

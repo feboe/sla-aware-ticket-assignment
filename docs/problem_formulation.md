@@ -7,8 +7,8 @@ service operation. Tickets arrive over time and differ in queue, language,
 priority, effort, and SLA targets. Agents differ in queue permissions,
 language coverage, priority scope, daily capacity, and shift bounds.
 
-The current OR model is a realistic current-slot scheduler. Every 15 minutes it
-rounds the requested solve time up to the next 15-minute slot, looks at the
+The current OR model is a realistic current-slot scheduler. Every 5 minutes it
+rounds the requested solve time up to the next 5-minute slot, looks at the
 tickets that are already open at that rounded decision time, filters to
 agent-ticket pairs that can legally start now, and decides which tickets to
 start immediately in the current slot.
@@ -18,7 +18,7 @@ start immediately in the current slot.
 The current model uses the following assumptions:
 
 - Each ticket is processed by at most one agent.
-- Once a ticket starts, it runs in consecutive 15-minute slots without preemption.
+- Once a ticket starts, it runs in consecutive 5-minute slots without preemption.
 - A started ticket must finish within the assigned agent's same-day shift.
 - Only tickets with `release_ts <= decision_ts` are modeled in a given solve.
 - Tickets not started in the current run remain in backlog and can be
@@ -33,7 +33,7 @@ The current model uses the following assumptions:
 
 Operationally, the scheduler runs as follows:
 
-1. Every 15 minutes, request a solve and round that timestamp up to the next
+1. Every 5 minutes, request a solve and round that timestamp up to the next
    slot to obtain `decision_ts`.
 2. Collect all tickets with `release_ts <= decision_ts`.
 3. Combine new arrivals with unresolved backlog from previous runs.
@@ -49,12 +49,12 @@ solve.
 
 ## Time Structure
 
-Time is discretized into 15-minute slots.
+Time is discretized into 5-minute slots.
 
 The input CSV does not store slot-aligned arrivals. Preprocessing derives:
 
 - `release_ts` by applying `ceil_to_slot(arrival_ts)`
-- `duration_slots` by applying `ceil(estimated_effort_min / 15)` with a minimum
+- `duration_slots` by applying `ceil(estimated_effort_min / 5)` with a minimum
   of one slot
 
 For one scheduler run:
@@ -63,7 +63,7 @@ For one scheduler run:
 - `decision_ts` is the rounded current decision slot
 - all chosen assignments start at `decision_ts`
 - `horizon_end_ts` is the latest shift end among agents on that day
-- `horizon_slot_count` is the number of remaining 15-minute slots from
+- `horizon_slot_count` is the number of remaining 5-minute slots from
   `decision_ts` to `horizon_end_ts`
 
 The solver is not a full-day planner. It chooses only start-now assignments,
@@ -87,7 +87,7 @@ Typical indices:
 - $q_i$: queue of ticket $i$
 - $l_i$: language requirement of ticket $i$
 - $pr_i$: priority of ticket $i$
-- $p_i$: processing time of ticket $i$ in 15-minute slots
+- $p_i$: processing time of ticket $i$ in 5-minute slots
 - $d_i^{FR}$: first-response due timestamp of ticket $i$
 - $d_i^{RES}$: resolution due timestamp of ticket $i$
 
@@ -118,7 +118,7 @@ with the following priority-to-weight mappings:
 
 The tardiness constraints also use a few derived helper terms:
 
-- $H$: remaining number of 15-minute slots from `decision_ts` to `horizon_end_ts`
+- $H$: remaining number of 5-minute slots from `decision_ts` to `horizon_end_ts`
 - $\delta_i^{FR}$: first-response due timestamp of ticket $i$ converted to a
   slot offset relative to `decision_ts`
 - $\delta_i^{RES}$: resolution due timestamp of ticket $i$ converted to a slot
@@ -271,7 +271,7 @@ This formulation is a realistic online dispatch model:
 - it uses only currently available information
 - it commits only current-slot starts
 - it remains directly comparable to the greedy baselines
-- it is small enough to solve quickly at every 15-minute decision point
+- it is small enough to solve quickly at every 5-minute decision point
 
 At the same time, it is still an approximation of long-run backlog effects,
 because deferred work is penalized through a remaining-day horizon proxy plus a
