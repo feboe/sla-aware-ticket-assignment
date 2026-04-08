@@ -9,8 +9,10 @@ best trade-off between throughput and protecting urgent tickets?
 Three policies are compared on the same replay environment: a myopic greedy
 baseline, a same-day look-ahead greedy heuristic, and a rolling CP-SAT OR
 scheduler. In the current 5-minute setup, `lookahead_greedy` achieves the
-highest throughput, while `or_scheduler` is the recommended business-facing
-option when P1/P2 protection matters most. The benchmark is intentionally
+highest throughput, `greedy_baseline` is slightly best on the narrowest P1
+first-response metric, and `or_scheduler` improves overall backlog,
+utilization, and total first-response tardiness versus greedy while keeping
+urgent-ticket performance close. The benchmark is intentionally
 overloaded: raw demand is `19,439` minutes against `19,200` minutes of 5-day
 agent capacity, and the active 5-minute slotted workload rises to `20,460`
 minutes.
@@ -28,7 +30,7 @@ For a deeper look at the OR approach, start with
 - It compares simple online heuristics against a rolling CP-SAT scheduler in
   the same replay environment, so the trade-offs are easy to explain and verify.
 - The key lesson is that maximizing throughput is not the same as protecting the
-  most urgent tickets. In this benchmark, the OR scheduler is valuable because
+  most urgent tickets. In this benchmark, the OR scheduler is useful because
   it makes that business trade-off explicit instead of relying on raw volume
   alone.
 - As a first OR portfolio project, the repo is designed to show the full loop:
@@ -40,32 +42,33 @@ For a deeper look at the OR approach, start with
 - 5-minute slots are the practical default: they preserve most of the timing
   detail without turning the benchmark into a one-minute dispatch simulation.
 - `lookahead_greedy` maximizes scheduled volume and overall utilization.
-- `or_scheduler` is the strongest policy when the evaluation puts P1/P2 urgency
-  ahead of raw throughput.
+- `or_scheduler` is the stronger optimization-based trade-off against greedy,
+  even though it is not the winner on every urgent-ticket metric.
 
 ## Benchmark Snapshot (5-Minute Slots)
 
 Not all tickets can be scheduled within the available agent capacity, so policy
 quality should be judged by how well urgent work is protected under overload.
 
-| Policy | Scheduled | Backlog | P1 Backlog | P2 Backlog | P1 FR Tardiness (min) | P2 FR Tardiness (min) | Utilization | Interpretation |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| Greedy | 442 | 69 | 0 | 1 | 175.74 | 3376.41 | 93.57% | Urgent-ticket handling is solid, but overall throughput is weakest |
-| Look-Ahead Greedy | 476 | 35 | 4 | 5 | 15644.30 | 34697.51 | 97.66% | Best throughput, but clearly weaker on urgent-ticket protection |
-| OR Scheduler | 452 | 59 | 0 | 1 | 268.99 | 3240.13 | 94.17% | Best business-facing trade-off when P1/P2 matter most |
+| Policy | Scheduled | Backlog | Total First Response Tardiness (min) | P1 First Response Tardiness (min) | P2 First Response Tardiness (min) | Utilization | Interpretation |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| Greedy | 442 | 69 | 186,591.88 | 175.74 | 3376.41 | 93.57% | Strongest narrow P1 handling, but weaker overall |
+| Look-Ahead Greedy | 476 | 35 | 98,752.77 | 15644.30 | 34697.51 | 97.66% | Throughput winner, but clearly weaker on urgent-ticket protection |
+| OR Scheduler | 452 | 59 | 131,681.71 | 268.99 | 3240.13 | 94.17% | Better overall compromise than greedy, without winning every urgent metric |
+
+Resolution tardiness is secondary in the current benchmark: greedy and OR both
+finish at 0.0 total resolution tardiness, while look-ahead reaches 4,818.88.
 
 Overall throughput favors look-ahead greedy, but a business-facing assessment
-should rank urgent-ticket protection first. That is why this project recommends
-the OR scheduler as the stronger dispatch story: its weighting scheme
-explicitly prioritizes P1/P2 tickets. In an overloaded system,
-that prioritization is the core operational decision, not a secondary
-preference. For the mathematical rationale behind that choice, see
+should rank urgent-ticket protection first. Greedy is slightly best on the
+narrowest P1 first-response metric, look-ahead greedy is best on throughput, and
+the OR scheduler is the strongest optimization-based compromise against greedy:
+it schedules 10 more tickets and lowers total
+first-response tardiness from 186,591.88 to 131,681.71 minutes. In an
+overloaded system, that prioritization is the core operational decision, not a
+secondary preference. For the mathematical rationale behind that choice, see
 [Priority Weights](docs/problem_formulation.md#priority-weights) and
 [Objective](docs/problem_formulation.md#objective).
-
-The OR scheduler is also operationally lightweight in this setup: it solved 342
-rolling decisions at 5-minute granularity with an average solve time of 0.0016
-seconds, and all solves finished with `OPTIMAL` status.
 
 ## Why 5-Minute Slots
 
@@ -108,13 +111,15 @@ If you want the dataset design details behind the benchmark, start with
 ## Setup
 
 This repo targets Python `3.10+`.
+The setup commands below are shown for PowerShell on Windows.
 
 ```powershell
+git clone https://github.com/feboe/sla-aware-ticket-assignment.git
+cd sla-aware-ticket-assignment
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-python -m unittest discover -s tests -p "test_*.py"
+.\.venv\Scripts\python -m pip install --upgrade pip
+.\.venv\Scripts\python -m pip install -r requirements.txt
+.\.venv\Scripts\python -m unittest discover -s tests -p "test_*.py"
 ```
 
 If you want to reproduce the published benchmark outputs from a fresh clone,
@@ -123,7 +128,7 @@ run the data generator once and then execute the three benchmark scripts below.
 ## Generate Tickets
 
 ```powershell
-python scripts\generate_ticket_assignment_data.py
+.\.venv\Scripts\python scripts\generate_ticket_assignment_data.py
 ```
 
 This writes `data/tickets.csv`.
@@ -131,13 +136,13 @@ This writes `data/tickets.csv`.
 ## Validate The Project
 
 ```powershell
-python -m unittest discover -s tests -p "test_*.py"
+.\.venv\Scripts\python -m unittest discover -s tests -p "test_*.py"
 ```
 
 ## Run The Greedy Baseline
 
 ```powershell
-python scripts\run_greedy_baseline.py
+.\.venv\Scripts\python scripts\run_greedy_baseline.py
 ```
 
 This writes:
@@ -148,7 +153,7 @@ This writes:
 ## Run The Look-Ahead Greedy Benchmark
 
 ```powershell
-python scripts\run_lookahead_greedy.py
+.\.venv\Scripts\python scripts\run_lookahead_greedy.py
 ```
 
 This writes:
@@ -159,7 +164,7 @@ This writes:
 ## Run The OR Scheduler
 
 ```powershell
-python scripts\run_or_scheduler.py
+.\.venv\Scripts\python scripts\run_or_scheduler.py
 ```
 
 This writes:
