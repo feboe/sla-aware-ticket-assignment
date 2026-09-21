@@ -6,12 +6,12 @@
   "total_tickets": 511,
   "scheduled_tickets": 442,
   "tickets_in_backlog": 69,
-  "total_first_response_tardiness_min": 186591.88,
+  "total_first_response_tardiness_min": 72405.51,
   "total_resolution_tardiness_min": 0.0,
   "scheduled": {
     "ticket_count": 442,
     "effort_min": 17965,
-    "first_response_tardiness_min": 162377.13,
+    "first_response_tardiness_min": 57775.41,
     "resolution_tardiness_min": 0.0,
     "overdue_first_response_count": 95,
     "overdue_resolution_count": 0,
@@ -27,7 +27,7 @@
       "P2": {
         "ticket_count": 92,
         "effort_min": 4255,
-        "first_response_tardiness_min": 3376.41,
+        "first_response_tardiness_min": 496.41,
         "resolution_tardiness_min": 0.0,
         "overdue_first_response_count": 5,
         "overdue_resolution_count": 0
@@ -35,7 +35,7 @@
       "P3": {
         "ticket_count": 248,
         "effort_min": 9405,
-        "first_response_tardiness_min": 11848.98,
+        "first_response_tardiness_min": 3212.55,
         "resolution_tardiness_min": 0.0,
         "overdue_first_response_count": 17,
         "overdue_resolution_count": 0
@@ -43,7 +43,7 @@
       "P4": {
         "ticket_count": 78,
         "effort_min": 2605,
-        "first_response_tardiness_min": 146976.0,
+        "first_response_tardiness_min": 53890.71,
         "resolution_tardiness_min": 0.0,
         "overdue_first_response_count": 63,
         "overdue_resolution_count": 0
@@ -53,7 +53,7 @@
   "backlog": {
     "ticket_count": 69,
     "effort_min": 2495,
-    "first_response_tardiness_min": 24214.75,
+    "first_response_tardiness_min": 14630.1,
     "resolution_tardiness_min": 0.0,
     "overdue_first_response_count": 35,
     "overdue_resolution_count": 0,
@@ -85,7 +85,7 @@
       "P4": {
         "ticket_count": 63,
         "effort_min": 2065,
-        "first_response_tardiness_min": 24111.0,
+        "first_response_tardiness_min": 14526.35,
         "resolution_tardiness_min": 0.0,
         "overdue_first_response_count": 33,
         "overdue_resolution_count": 0

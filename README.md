@@ -9,13 +9,12 @@ best trade-off between throughput and protecting urgent tickets?
 Three policies are compared on the same replay environment: a myopic greedy
 baseline, a same-day look-ahead greedy heuristic, and a rolling CP-SAT OR
 scheduler. In the current 5-minute setup, `lookahead_greedy` achieves the
-highest throughput, `greedy_baseline` is slightly best on the narrowest P1
-first-response metric, and `or_scheduler` improves overall backlog,
-utilization, and total first-response tardiness versus greedy while keeping
-urgent-ticket performance close. The benchmark is intentionally
-overloaded: raw demand is `19,439` minutes against `19,200` minutes of 5-day
-agent capacity, and the active 5-minute slotted workload rises to `20,460`
-minutes.
+highest throughput, `greedy_baseline` is slightly best on P1 first-response
+tardiness, and `or_scheduler` improves total and P2 first-response tardiness
+versus greedy while keeping P1 performance close. The benchmark is
+intentionally overloaded: raw demand is `19,439` minutes against `19,200`
+minutes of 5-day agent capacity, and the active 5-minute slotted workload rises
+to `20,460` minutes.
 
 For a deeper look at the OR approach, start with
 [Problem Overview](docs/problem_formulation.md#problem-overview),
@@ -41,32 +40,36 @@ For a deeper look at the OR approach, start with
 
 - 5-minute slots are the practical default: they preserve most of the timing
   detail without turning the benchmark into a one-minute dispatch simulation.
+- Policy quality is assessed with SLA tardiness measured in business minutes,
+  not elapsed calendar minutes.
 - `lookahead_greedy` maximizes scheduled volume and overall utilization.
-- `or_scheduler` is the stronger optimization-based trade-off against greedy,
-  even though it is not the winner on every urgent-ticket metric.
+- `or_scheduler` provides the stronger SLA-aware compromise against greedy,
+  even though it does not win every urgent-ticket metric.
 
 ## Benchmark Snapshot (5-Minute Slots)
 
 Not all tickets can be scheduled within the available agent capacity, so policy
 quality should be judged by how well urgent work is protected under overload.
+All SLA metrics use business minutes on the Monday--Friday, 08:00--16:00 support
+calendar; see [Time Structure](docs/problem_formulation.md#time-structure) for
+the detailed time semantics.
 
-| Policy | Scheduled | Backlog | Total First Response Tardiness (min) | P1 First Response Tardiness (min) | P2 First Response Tardiness (min) | Utilization | Interpretation |
+| Policy | Scheduled | Backlog | Total First Response Tardiness (business min) | P1 First Response Tardiness (business min) | P2 First Response Tardiness (business min) | Utilization | Interpretation |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| Greedy | 442 | 69 | 186,591.88 | 175.74 | 3376.41 | 93.57% | Strongest narrow P1 handling, but weaker overall |
-| Look-Ahead Greedy | 476 | 35 | 98,752.77 | 15644.30 | 34697.51 | 97.66% | Throughput winner, but clearly weaker on urgent-ticket protection |
-| OR Scheduler | 452 | 59 | 131,681.71 | 268.99 | 3240.13 | 94.17% | Better overall compromise than greedy, without winning every urgent metric |
+| Greedy | 442 | 69 | 72,405.51 | 175.74 | 496.41 | 93.57% | Strongest narrow P1 handling, but weaker overall |
+| Look-Ahead Greedy | 476 | 35 | 25,823.44 | 4,124.30 | 9,737.51 | 97.66% | Throughput winner, but clearly weaker on urgent-ticket protection |
+| OR Scheduler | 450 | 61 | 54,713.56 | 219.02 | 207.18 | 93.98% | Better overall and P2 protection than greedy while keeping P1 close |
 
 Resolution tardiness is secondary in the current benchmark: greedy and OR both
-finish at 0.0 total resolution tardiness, while look-ahead reaches 4,818.88.
+finish at 0.0 business minutes, while look-ahead reaches 980.97.
 
 Overall throughput favors look-ahead greedy, but a business-facing assessment
-should rank urgent-ticket protection first. Greedy is slightly best on the
-narrowest P1 first-response metric, look-ahead greedy is best on throughput, and
-the OR scheduler is the strongest optimization-based compromise against greedy:
-it schedules 10 more tickets and lowers total
-first-response tardiness from 186,591.88 to 131,681.71 minutes. In an
-overloaded system, that prioritization is the core operational decision, not a
-secondary preference. For the mathematical rationale behind that choice, see
+should rank urgent-ticket protection first. Greedy is slightly best on P1,
+look-ahead greedy is best on throughput, and the OR scheduler is the strongest
+optimization-based compromise against greedy: it schedules 8 more tickets,
+lowers total first-response tardiness from 72,405.51 to 54,713.56 business
+minutes, and lowers P2 tardiness from 496.41 to 207.18 business minutes. For the
+mathematical rationale behind that choice, see
 [Priority Weights](docs/problem_formulation.md#priority-weights) and
 [Objective](docs/problem_formulation.md#objective).
 
@@ -90,6 +93,7 @@ policies, and evaluation outputs so the methods stay easy to compare.
 - `src/greedy_baseline.py`: online myopic dispatcher
 - `src/lookahead_greedy.py`: same-day earliest-fit reservation heuristic
 - `src/or_scheduler.py`: rolling current-slot OR scheduler built on CP-SAT
+- `src/business_calendar.py`: shared business calendar and SLA-time utilities
 - `src/preprocessing.py` and `src/evaluation.py`: shared slotting, feasibility,
   schedule writing, and metrics aggregation utilities
 
@@ -110,16 +114,17 @@ If you want the dataset design details behind the benchmark, start with
 
 ## Setup
 
-This repo targets Python `3.10+`.
-The setup commands below are shown for PowerShell on Windows.
+This repo targets Python `3.10+` and uses Linux shell commands as the primary
+workflow. On Debian or Ubuntu, install `python3-venv` first if the `venv` module
+is not already available.
 
-```powershell
+```bash
 git clone https://github.com/feboe/sla-aware-ticket-assignment.git
 cd sla-aware-ticket-assignment
-python -m venv .venv
-.\.venv\Scripts\python -m pip install --upgrade pip
-.\.venv\Scripts\python -m pip install -r requirements.txt
-.\.venv\Scripts\python -m unittest discover -s tests -p "test_*.py"
+python3 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m unittest discover -s tests -p "test_*.py"
 ```
 
 If you want to reproduce the published benchmark outputs from a fresh clone,
@@ -127,22 +132,22 @@ run the data generator once and then execute the three benchmark scripts below.
 
 ## Generate Tickets
 
-```powershell
-.\.venv\Scripts\python scripts\generate_ticket_assignment_data.py
+```bash
+.venv/bin/python -m scripts.generate_ticket_assignment_data
 ```
 
 This writes `data/tickets.csv`.
 
 ## Validate The Project
 
-```powershell
-.\.venv\Scripts\python -m unittest discover -s tests -p "test_*.py"
+```bash
+.venv/bin/python -m unittest discover -s tests -p "test_*.py"
 ```
 
 ## Run The Greedy Baseline
 
-```powershell
-.\.venv\Scripts\python scripts\run_greedy_baseline.py
+```bash
+.venv/bin/python -m scripts.run_greedy_baseline
 ```
 
 This writes:
@@ -152,8 +157,8 @@ This writes:
 
 ## Run The Look-Ahead Greedy Benchmark
 
-```powershell
-.\.venv\Scripts\python scripts\run_lookahead_greedy.py
+```bash
+.venv/bin/python -m scripts.run_lookahead_greedy
 ```
 
 This writes:
@@ -163,8 +168,8 @@ This writes:
 
 ## Run The OR Scheduler
 
-```powershell
-.\.venv\Scripts\python scripts\run_or_scheduler.py
+```bash
+.venv/bin/python -m scripts.run_or_scheduler
 ```
 
 This writes:
@@ -209,7 +214,9 @@ The OR scheduler adds solver-specific diagnostics:
   decides what can start now and re-optimizes every 5 minutes.
 - Future ticket arrivals are unknown inside any single solve, so the model makes decisions with current information only.
 - Deferred work is penalized with a remaining-day horizon proxy, and end-of-run
-  backlog metrics are measured at the final replay horizon end.
+  backlog metrics are measured at the final replay horizon end. Both use the
+  shared business-time calendar; the local proxy is still not a full future-day
+  schedule.
 - `required_skill_tags` and agent `skill_tags` are documented in the datasets
   but are still metadata in the current version, not hard matching constraints.
 - The benchmark is synthetic and portfolio-oriented by design: it aims to be

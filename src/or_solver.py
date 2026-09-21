@@ -6,6 +6,7 @@ from typing import Any
 
 from ortools.sat.python import cp_model
 
+from src.business_calendar import business_minutes_between, business_slot_offset_floor
 from src.or_preparation import OrSchedulerInstance
 from src.preprocessing import SLOT_MINUTES
 
@@ -37,13 +38,6 @@ class OrSchedulerSolveArtifacts:
     solve_time_sec: float
 
 
-def _slot_offset_floor(ts, origin) -> int:
-    """Convert a timestamp to a slot offset relative to ``origin`` using floor semantics."""
-
-    delta_minutes = (ts - origin).total_seconds() / 60.0
-    return int(delta_minutes // SLOT_MINUTES)
-
-
 def create_or_scheduler_model(
     instance: OrSchedulerInstance,
 ) -> tuple[cp_model.CpModel, OrSchedulerVariables]:
@@ -69,22 +63,21 @@ def create_or_scheduler_model(
         max(
             0,
             math.ceil(
-                (instance.horizon_end_ts - earliest_due_ts).total_seconds()
-                / 60
+                business_minutes_between(earliest_due_ts, instance.horizon_end_ts)
                 / SLOT_MINUTES
             ),
         )
         + max_duration_slots
     )
     first_response_due_offsets = {
-        ticket.ticket_id: _slot_offset_floor(
-            ticket.first_response_due_ts, instance.decision_ts
+        ticket.ticket_id: business_slot_offset_floor(
+            ticket.first_response_due_ts, instance.decision_ts, SLOT_MINUTES
         )
         for ticket in instance.tickets
     }
     resolution_due_offsets = {
-        ticket.ticket_id: _slot_offset_floor(
-            ticket.resolution_due_ts, instance.decision_ts
+        ticket.ticket_id: business_slot_offset_floor(
+            ticket.resolution_due_ts, instance.decision_ts, SLOT_MINUTES
         )
         for ticket in instance.tickets
     }

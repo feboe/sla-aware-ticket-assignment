@@ -6,28 +6,28 @@
   "total_tickets": 511,
   "scheduled_tickets": 476,
   "tickets_in_backlog": 35,
-  "total_first_response_tardiness_min": 98752.77,
-  "total_resolution_tardiness_min": 4818.88,
+  "total_first_response_tardiness_min": 25823.44,
+  "total_resolution_tardiness_min": 980.97,
   "scheduled": {
     "ticket_count": 476,
     "effort_min": 18750,
-    "first_response_tardiness_min": 96875.34,
-    "resolution_tardiness_min": 4775.71,
-    "overdue_first_response_count": 228,
+    "first_response_tardiness_min": 23945.81,
+    "resolution_tardiness_min": 937.8,
+    "overdue_first_response_count": 229,
     "overdue_resolution_count": 11,
     "by_priority": {
       "P1": {
         "ticket_count": 20,
         "effort_min": 1400,
-        "first_response_tardiness_min": 14765.68,
-        "resolution_tardiness_min": 4775.71,
+        "first_response_tardiness_min": 3245.68,
+        "resolution_tardiness_min": 937.8,
         "overdue_first_response_count": 19,
         "overdue_resolution_count": 11
       },
       "P2": {
         "ticket_count": 88,
         "effort_min": 4070,
-        "first_response_tardiness_min": 34110.43,
+        "first_response_tardiness_min": 9150.43,
         "resolution_tardiness_min": 0.0,
         "overdue_first_response_count": 76,
         "overdue_resolution_count": 0
@@ -35,7 +35,7 @@
       "P3": {
         "ticket_count": 242,
         "effort_min": 9255,
-        "first_response_tardiness_min": 46562.23,
+        "first_response_tardiness_min": 10104.82,
         "resolution_tardiness_min": 0.0,
         "overdue_first_response_count": 119,
         "overdue_resolution_count": 0
@@ -43,9 +43,9 @@
       "P4": {
         "ticket_count": 126,
         "effort_min": 4025,
-        "first_response_tardiness_min": 1437.0,
+        "first_response_tardiness_min": 1444.88,
         "resolution_tardiness_min": 0.0,
-        "overdue_first_response_count": 14,
+        "overdue_first_response_count": 15,
         "overdue_resolution_count": 0
       }
     }
@@ -53,7 +53,7 @@
   "backlog": {
     "ticket_count": 35,
     "effort_min": 1710,
-    "first_response_tardiness_min": 1877.43,
+    "first_response_tardiness_min": 1877.63,
     "resolution_tardiness_min": 43.17,
     "overdue_first_response_count": 12,
     "overdue_resolution_count": 3,
@@ -85,7 +85,7 @@
       "P4": {
         "ticket_count": 15,
         "effort_min": 645,
-        "first_response_tardiness_min": 304.0,
+        "first_response_tardiness_min": 304.2,
         "resolution_tardiness_min": 0.0,
         "overdue_first_response_count": 1,
         "overdue_resolution_count": 0

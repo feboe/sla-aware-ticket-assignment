@@ -242,19 +242,21 @@ class TestGreedyBaseline(unittest.TestCase):
                 sum(values["effort_min"] for values in section["by_priority"].values()),
                 section["effort_min"],
             )
-            self.assertEqual(
+            self.assertAlmostEqual(
                 sum(
                     values["first_response_tardiness_min"]
                     for values in section["by_priority"].values()
                 ),
                 section["first_response_tardiness_min"],
+                places=2,
             )
-            self.assertEqual(
+            self.assertAlmostEqual(
                 sum(
                     values["resolution_tardiness_min"]
                     for values in section["by_priority"].values()
                 ),
                 section["resolution_tardiness_min"],
+                places=2,
             )
 
     def test_agent_utilization_section_matches_schedule(self) -> None:

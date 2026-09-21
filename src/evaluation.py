@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from src.business_calendar import business_minutes_between
 from src.preprocessing import AgentRecord, SLOT_MINUTES, TIMESTAMP_FORMAT
 
 SCHEDULE_FIELDNAMES = [
@@ -45,9 +46,14 @@ def format_metric_value(value: float | None) -> str:
 
 
 def tardiness_minutes(actual_ts: datetime, due_ts: datetime) -> float:
-    """Return positive lateness in minutes and clip early completions to zero."""
+    """Return positive SLA lateness in business minutes.
 
-    return round(max(0.0, (actual_ts - due_ts).total_seconds() / 60.0), 2)
+    The SLA clock pauses outside the shared Monday--Friday, 08:00--16:00
+    business calendar.  This applies equally to scheduled work and backlog
+    evaluated at the final replay horizon.
+    """
+
+    return round(max(0.0, business_minutes_between(due_ts, actual_ts)), 2)
 
 
 def empty_priority_tardiness_metrics() -> dict[str, float | int]:
@@ -320,7 +326,11 @@ def write_schedule_outputs(
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
 
     with schedule_path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=SCHEDULE_FIELDNAMES)
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=SCHEDULE_FIELDNAMES,
+            lineterminator="\n",
+        )
         writer.writeheader()
         for entry in schedule:
             writer.writerow(entry.to_row())

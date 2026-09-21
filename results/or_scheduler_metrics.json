@@ -4,46 +4,46 @@
   "horizon_start_ts": "2026-03-02 08:00:00",
   "horizon_end_ts": "2026-03-06 16:00:00",
   "total_tickets": 511,
-  "scheduled_tickets": 452,
-  "tickets_in_backlog": 59,
-  "total_first_response_tardiness_min": 131681.71,
+  "scheduled_tickets": 450,
+  "tickets_in_backlog": 61,
+  "total_first_response_tardiness_min": 54713.56,
   "total_resolution_tardiness_min": 0.0,
   "scheduled": {
-    "ticket_count": 452,
-    "effort_min": 18080,
-    "first_response_tardiness_min": 65697.76,
+    "ticket_count": 450,
+    "effort_min": 18045,
+    "first_response_tardiness_min": 25397.92,
     "resolution_tardiness_min": 0.0,
-    "overdue_first_response_count": 103,
+    "overdue_first_response_count": 101,
     "overdue_resolution_count": 0,
     "by_priority": {
       "P1": {
         "ticket_count": 24,
         "effort_min": 1700,
-        "first_response_tardiness_min": 268.99,
+        "first_response_tardiness_min": 219.02,
         "resolution_tardiness_min": 0.0,
-        "overdue_first_response_count": 11,
+        "overdue_first_response_count": 7,
         "overdue_resolution_count": 0
       },
       "P2": {
         "ticket_count": 92,
         "effort_min": 4255,
-        "first_response_tardiness_min": 3240.13,
+        "first_response_tardiness_min": 207.18,
         "resolution_tardiness_min": 0.0,
-        "overdue_first_response_count": 6,
+        "overdue_first_response_count": 4,
         "overdue_resolution_count": 0
       },
       "P3": {
-        "ticket_count": 244,
-        "effort_min": 9320,
-        "first_response_tardiness_min": 13023.64,
+        "ticket_count": 245,
+        "effort_min": 9420,
+        "first_response_tardiness_min": 1664.4,
         "resolution_tardiness_min": 0.0,
-        "overdue_first_response_count": 20,
+        "overdue_first_response_count": 24,
         "overdue_resolution_count": 0
       },
       "P4": {
-        "ticket_count": 92,
-        "effort_min": 2805,
-        "first_response_tardiness_min": 49165.0,
+        "ticket_count": 89,
+        "effort_min": 2670,
+        "first_response_tardiness_min": 23307.32,
         "resolution_tardiness_min": 0.0,
         "overdue_first_response_count": 66,
         "overdue_resolution_count": 0
@@ -51,11 +51,11 @@
     }
   },
   "backlog": {
-    "ticket_count": 59,
-    "effort_min": 2380,
-    "first_response_tardiness_min": 65983.95,
+    "ticket_count": 61,
+    "effort_min": 2415,
+    "first_response_tardiness_min": 29315.64,
     "resolution_tardiness_min": 0.0,
-    "overdue_first_response_count": 23,
+    "overdue_first_response_count": 25,
     "overdue_resolution_count": 0,
     "by_priority": {
       "P1": {
@@ -75,107 +75,107 @@
         "overdue_resolution_count": 0
       },
       "P3": {
-        "ticket_count": 9,
-        "effort_min": 475,
-        "first_response_tardiness_min": 65.95,
+        "ticket_count": 8,
+        "effort_min": 375,
+        "first_response_tardiness_min": 3.98,
         "resolution_tardiness_min": 0.0,
-        "overdue_first_response_count": 2,
+        "overdue_first_response_count": 1,
         "overdue_resolution_count": 0
       },
       "P4": {
-        "ticket_count": 49,
-        "effort_min": 1865,
-        "first_response_tardiness_min": 65918.0,
+        "ticket_count": 52,
+        "effort_min": 2000,
+        "first_response_tardiness_min": 29311.66,
         "resolution_tardiness_min": 0.0,
-        "overdue_first_response_count": 21,
+        "overdue_first_response_count": 24,
         "overdue_resolution_count": 0
       }
     }
   },
   "agent_utilization": {
     "GEN-01": {
-      "workload_minutes": 2380,
+      "workload_minutes": 2365,
       "capacity_minutes": 2400,
-      "utilization": 0.9917,
+      "utilization": 0.9854,
       "p1_tickets_solved": 0,
-      "p2_tickets_solved": 17,
-      "p3_tickets_solved": 45,
-      "p4_tickets_solved": 26
+      "p2_tickets_solved": 15,
+      "p3_tickets_solved": 53,
+      "p4_tickets_solved": 22
     },
     "GEN-02": {
       "workload_minutes": 2355,
       "capacity_minutes": 2400,
       "utilization": 0.9812,
       "p1_tickets_solved": 0,
-      "p2_tickets_solved": 16,
-      "p3_tickets_solved": 44,
-      "p4_tickets_solved": 15
+      "p2_tickets_solved": 15,
+      "p3_tickets_solved": 39,
+      "p4_tickets_solved": 20
     },
     "GEN-03": {
-      "workload_minutes": 2350,
+      "workload_minutes": 2360,
       "capacity_minutes": 2400,
-      "utilization": 0.9792,
+      "utilization": 0.9833,
       "p1_tickets_solved": 0,
-      "p2_tickets_solved": 14,
-      "p3_tickets_solved": 51,
-      "p4_tickets_solved": 17
+      "p2_tickets_solved": 18,
+      "p3_tickets_solved": 47,
+      "p4_tickets_solved": 13
     },
     "INT-01": {
-      "workload_minutes": 2300,
+      "workload_minutes": 2295,
       "capacity_minutes": 2400,
-      "utilization": 0.9583,
+      "utilization": 0.9563,
       "p1_tickets_solved": 2,
-      "p2_tickets_solved": 7,
+      "p2_tickets_solved": 5,
       "p3_tickets_solved": 19,
       "p4_tickets_solved": 4
     },
     "INT-02": {
-      "workload_minutes": 2240,
+      "workload_minutes": 2195,
       "capacity_minutes": 2400,
-      "utilization": 0.9333,
+      "utilization": 0.9146,
       "p1_tickets_solved": 3,
       "p2_tickets_solved": 9,
-      "p3_tickets_solved": 22,
+      "p3_tickets_solved": 23,
       "p4_tickets_solved": 3
     },
     "PS-01": {
-      "workload_minutes": 2340,
+      "workload_minutes": 2330,
       "capacity_minutes": 2400,
-      "utilization": 0.975,
+      "utilization": 0.9708,
       "p1_tickets_solved": 2,
-      "p2_tickets_solved": 4,
-      "p3_tickets_solved": 35,
-      "p4_tickets_solved": 12
+      "p2_tickets_solved": 6,
+      "p3_tickets_solved": 37,
+      "p4_tickets_solved": 9
     },
     "PS-02": {
-      "workload_minutes": 2335,
+      "workload_minutes": 2350,
       "capacity_minutes": 2400,
-      "utilization": 0.9729,
-      "p1_tickets_solved": 3,
-      "p2_tickets_solved": 9,
-      "p3_tickets_solved": 28,
-      "p4_tickets_solved": 15
+      "utilization": 0.9792,
+      "p1_tickets_solved": 4,
+      "p2_tickets_solved": 7,
+      "p3_tickets_solved": 27,
+      "p4_tickets_solved": 18
     },
     "SIC-01": {
-      "workload_minutes": 1780,
+      "workload_minutes": 1795,
       "capacity_minutes": 2400,
-      "utilization": 0.7417,
-      "p1_tickets_solved": 14,
-      "p2_tickets_solved": 16,
+      "utilization": 0.7479,
+      "p1_tickets_solved": 13,
+      "p2_tickets_solved": 17,
       "p3_tickets_solved": 0,
       "p4_tickets_solved": 0
     }
   },
   "overall_agent_utilization": {
-    "workload_minutes": 18080,
-    "workload_hours": 301.33,
+    "workload_minutes": 18045,
+    "workload_hours": 300.75,
     "capacity_minutes": 19200,
     "capacity_hours": 320.0,
-    "utilization": 0.9417
+    "utilization": 0.9398
   },
-  "solve_call_count": 342,
-  "avg_solve_time_sec": 0.0017,
+  "solve_call_count": 349,
+  "avg_solve_time_sec": 0.0012,
   "solver_status_counts": {
-    "OPTIMAL": 342
+    "OPTIMAL": 349
   }
 }

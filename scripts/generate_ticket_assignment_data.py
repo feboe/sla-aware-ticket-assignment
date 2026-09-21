@@ -13,12 +13,21 @@ from pathlib import Path
 from typing import Dict, List
 
 from src.preprocessing import TIMESTAMP_FORMAT
+from src.business_calendar import (
+    BUSINESS_DAY_MINUTES,
+    BUSINESS_START,
+    add_business_minutes,
+    is_business_timestamp,
+    next_business_day_start,
+)
 
 SEED = 42
 OUTPUT_CSV = Path("data/tickets.csv")
 
-SHIFT_START_HOUR = 8
-SHIFT_DURATION_HOURS = 8
+# Kept as public generator constants for compatibility, but derived from the
+# shared calendar so generated deadlines and validation cannot drift apart.
+SHIFT_START_HOUR = BUSINESS_START.hour
+SHIFT_DURATION_HOURS = BUSINESS_DAY_MINUTES // 60
 N_BUSINESS_DAYS = 5
 START_DATE = datetime(2026, 3, 2, 8, 0, 0)  # Monday
 
@@ -184,48 +193,6 @@ def business_days(start: datetime, n: int) -> List[datetime]:
     return days
 
 
-def add_business_minutes(ts: datetime, minutes: int) -> datetime:
-    """Add minutes while skipping non-business hours and weekends."""
-
-    cur = ts
-    remaining = minutes
-    shift_start = timedelta(hours=SHIFT_START_HOUR)
-    shift_end = timedelta(hours=SHIFT_START_HOUR + SHIFT_DURATION_HOURS)
-
-    while remaining > 0:
-        day_start = datetime(cur.year, cur.month, cur.day) + shift_start
-        day_end = datetime(cur.year, cur.month, cur.day) + shift_end
-
-        if cur.weekday() >= 5:
-            cur = next_business_day_start(cur)
-            continue
-
-        if cur < day_start:
-            cur = day_start
-        elif cur >= day_end:
-            cur = next_business_day_start(cur)
-            continue
-
-        available_today = int((day_end - cur).total_seconds() // 60)
-        step = min(available_today, remaining)
-        cur += timedelta(minutes=step)
-        remaining -= step
-
-        if remaining > 0:
-            cur = next_business_day_start(cur)
-
-    return cur
-
-
-def next_business_day_start(ts: datetime) -> datetime:
-    """Jump to the next weekday at the configured shift start."""
-
-    cur = datetime(ts.year, ts.month, ts.day, SHIFT_START_HOUR, 0, 0) + timedelta(days=1)
-    while cur.weekday() >= 5:
-        cur += timedelta(days=1)
-    return cur
-
-
 def format_timestamp(ts: datetime) -> str:
     """Format timestamps using the shared CSV timestamp representation."""
 
@@ -236,17 +203,6 @@ def parse_timestamp(value: str) -> datetime:
     """Parse timestamps from the shared CSV timestamp representation."""
 
     return datetime.strptime(value, TIMESTAMP_FORMAT)
-
-
-def is_business_timestamp(ts: datetime) -> bool:
-    """Check whether a timestamp lies within the configured business calendar."""
-
-    if ts.weekday() >= 5:
-        return False
-
-    day_start = datetime(ts.year, ts.month, ts.day, SHIFT_START_HOUR, 0, 0)
-    day_end = day_start + timedelta(hours=SHIFT_DURATION_HOURS)
-    return day_start <= ts <= day_end
 
 
 def choose_priority(
@@ -492,7 +448,11 @@ def write_csv(rows: List[Ticket], output_path: Path = OUTPUT_CSV) -> None:
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=[field.name for field in fields(Ticket)])
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[field.name for field in fields(Ticket)],
+            lineterminator="\n",
+        )
         writer.writeheader()
         for row in rows:
             writer.writerow(row.__dict__)

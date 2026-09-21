@@ -49,7 +49,10 @@ separately in `data/agents.csv`.
 - Random seed is fixed at `42` for reproducibility.
 - The current generator creates `5` business days starting on Monday
   `2026-03-02 08:00:00`.
-- Business calendar is Monday to Friday, `08:00` to `16:00`.
+- Every P1--P4 first-response and resolution SLA uses business minutes on the
+  Monday-to-Friday, `08:00` to `16:00` calendar. SLA clocks pause overnight
+  and on weekends; for example, `1,440` business minutes is three business
+  days, not 24 elapsed hours.
 - Daily ticket volume varies between `80` and `120`, with Tuesday and Wednesday
   allowed to run slightly busier inside that range.
 - Arrivals are continuous within the shift and mildly concentrated in late

@@ -51,6 +51,13 @@ solve.
 
 Time is discretized into 5-minute slots.
 
+All P1--P4 first-response and resolution SLA clocks use business minutes on a
+single calendar: Monday through Friday, 08:00--16:00. Time overnight and on
+weekends does not count toward a deadline or tardiness. The generator,
+evaluation layer, and CP-SAT model use this same calendar. Thus, 24 business
+hours is three business days in this eight-hour support operation, not 24
+elapsed calendar hours.
+
 The input CSV does not store slot-aligned arrivals. Preprocessing derives:
 
 - `release_ts` by applying `ceil_to_slot(arrival_ts)`
@@ -63,8 +70,8 @@ For one scheduler run:
 - `decision_ts` is the rounded current decision slot
 - all chosen assignments start at `decision_ts`
 - `horizon_end_ts` is the latest shift end among agents on that day
-- `horizon_slot_count` is the number of remaining 5-minute slots from
-  `decision_ts` to `horizon_end_ts`
+- `horizon_slot_count` is the number of remaining 5-minute business-time slots
+  from `decision_ts` to `horizon_end_ts`
 
 The solver is not a full-day planner. It chooses only start-now assignments,
 but it still uses the remaining-day horizon as a proxy when penalizing backlog.
@@ -124,11 +131,13 @@ small secondary penalty.
 
 The tardiness constraints also use a few derived helper terms:
 
-- $H$: remaining number of 5-minute slots from `decision_ts` to `horizon_end_ts`
+- $H$: remaining number of 5-minute business-time slots from `decision_ts` to
+  `horizon_end_ts`
 - $\delta_i^{FR}$: first-response due timestamp of ticket $i$ converted to a
-  slot offset relative to `decision_ts`
+  business-time slot offset relative to `decision_ts`, using floor semantics
+  for non-slot-aligned timestamps
 - $\delta_i^{RES}$: resolution due timestamp of ticket $i$ converted to a slot
-  offset relative to `decision_ts`
+  offset relative to `decision_ts`, also using business-time floor semantics
 
 ## Feasibility
 

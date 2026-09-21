@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+from src.business_calendar import business_minutes_between
 from src.preprocessing import (
     AgentRecord,
     SLOT_MINUTES,
@@ -117,7 +118,8 @@ def prepare_or_scheduler_instance(
         0,
         int(
             math.ceil(
-                (horizon_end_ts - rounded_decision_ts).total_seconds() / 60 / SLOT_MINUTES
+                business_minutes_between(rounded_decision_ts, horizon_end_ts)
+                / SLOT_MINUTES
             )
         ),
     )
