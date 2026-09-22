@@ -4,11 +4,11 @@ import csv
 import json
 import tempfile
 import unittest
-from datetime import datetime, time, timedelta
+from datetime import datetime, time
 from pathlib import Path
 
 import src.greedy_baseline as greedy_baseline
-from src.evaluation import SCHEDULE_FIELDNAMES, ScheduleEntry, tardiness_minutes
+from src.evaluation import SCHEDULE_FIELDNAMES, ScheduleEntry
 from src.greedy_baseline import (
     run_greedy_baseline,
     run_greedy_baseline_from_csv,
@@ -16,7 +16,6 @@ from src.greedy_baseline import (
 )
 from src.preprocessing import (
     AgentRecord,
-    SLOT_MINUTES,
     TicketRecord,
     ceil_to_slot,
     load_agents,
@@ -24,13 +23,12 @@ from src.preprocessing import (
     round_effort_to_slots,
 )
 
-
 TICKETS_PATH = Path("data/tickets.csv")
 AGENTS_PATH = Path("data/agents.csv")
 
 
 class TestGreedyBaseline(unittest.TestCase):
-    """Check baseline determinism, feasibility, timing, and metric integrity."""
+    """Check baseline determinism, policy behavior, and I/O contracts."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -39,8 +37,6 @@ class TestGreedyBaseline(unittest.TestCase):
         cls.result = run_greedy_baseline(cls.tickets, cls.agents)
         cls.schedule = cls.result.schedule
         cls.metrics = cls.result.metrics
-        cls.ticket_by_id = {ticket.ticket_id: ticket for ticket in cls.tickets}
-        cls.agent_by_id = {agent.agent_id: agent for agent in cls.agents}
 
     def test_run_is_deterministic(self) -> None:
         second_run = run_greedy_baseline(self.tickets, self.agents)
@@ -79,296 +75,6 @@ class TestGreedyBaseline(unittest.TestCase):
             resolution_tardiness_min=0.0,
         )
         self.assertEqual(entry.to_row()["start_ts"], "2026-03-02 08:00:00")
-
-    def test_schedule_covers_all_tickets(self) -> None:
-        self.assertEqual(len(self.schedule), len(self.tickets))
-        self.assertEqual(
-            {entry.ticket_id for entry in self.schedule},
-            {ticket.ticket_id for ticket in self.tickets},
-        )
-        self.assertTrue(
-            {entry.status for entry in self.schedule}.issubset(
-                {"scheduled", "backlog_end"}
-            )
-        )
-
-    def test_assigned_tickets_respect_feasibility_and_timing(self) -> None:
-        for entry in self.schedule:
-            ticket = self.ticket_by_id[entry.ticket_id]
-            if entry.status != "scheduled":
-                self.assertEqual(entry.agent_id, "")
-                self.assertIsNone(entry.start_ts)
-                self.assertIsNone(entry.completion_ts)
-                continue
-
-            agent = self.agent_by_id[entry.agent_id]
-            self.assertIn(ticket.queue, agent.queue_permissions)
-            self.assertIn(ticket.language, agent.languages)
-            self.assertIn(ticket.priority, agent.priority_scope)
-            self.assertGreaterEqual(entry.start_ts, ticket.arrival_ts)
-            self.assertGreaterEqual(entry.start_ts, ticket.release_ts)
-            self.assertEqual(entry.start_ts.second, 0)
-            self.assertEqual(entry.start_ts.minute % SLOT_MINUTES, 0)
-            self.assertEqual(entry.start_ts.date(), entry.completion_ts.date())
-            self.assertEqual(
-                entry.completion_ts - entry.start_ts,
-                timedelta(minutes=ticket.duration_slots * SLOT_MINUTES),
-            )
-            self.assertGreaterEqual(
-                entry.start_ts,
-                datetime.combine(entry.start_ts.date(), agent.shift_start),
-            )
-            self.assertLessEqual(
-                entry.completion_ts,
-                datetime.combine(entry.start_ts.date(), agent.shift_end),
-            )
-            self.assertEqual(
-                entry.first_response_tardiness_min,
-                tardiness_minutes(entry.start_ts, ticket.first_response_due_ts),
-            )
-            self.assertEqual(
-                entry.resolution_tardiness_min,
-                tardiness_minutes(entry.completion_ts, ticket.resolution_due_ts),
-            )
-
-    def test_no_double_booking_and_daily_capacity(self) -> None:
-        occupied_slots: set[tuple[str, datetime]] = set()
-        daily_minutes: dict[tuple[str, datetime.date], int] = {}
-
-        for entry in self.schedule:
-            if entry.status != "scheduled":
-                continue
-
-            agent = self.agent_by_id[entry.agent_id]
-            current = entry.start_ts
-            while current < entry.completion_ts:
-                key = (entry.agent_id, current)
-                self.assertNotIn(key, occupied_slots)
-                occupied_slots.add(key)
-                current += timedelta(minutes=SLOT_MINUTES)
-
-            day_key = (entry.agent_id, entry.start_ts.date())
-            daily_minutes[day_key] = daily_minutes.get(day_key, 0) + (
-                entry.duration_slots * SLOT_MINUTES
-            )
-            self.assertLessEqual(daily_minutes[day_key], agent.capacity_min_per_day)
-
-    def test_backlog_metrics_match_schedule(self) -> None:
-        backlog_entries = [
-            entry for entry in self.schedule if entry.status == "backlog_end"
-        ]
-        self.assertEqual(len(backlog_entries), self.metrics["tickets_in_backlog"])
-        self.assertEqual(
-            sum(entry.duration_slots * SLOT_MINUTES for entry in backlog_entries),
-            self.metrics["backlog"]["effort_min"],
-        )
-        backlog_metrics = self.metrics["backlog"]
-        self.assertEqual(len(backlog_entries), backlog_metrics["ticket_count"])
-        self.assertEqual(
-            sum(entry.duration_slots * SLOT_MINUTES for entry in backlog_entries),
-            backlog_metrics["effort_min"],
-        )
-
-    def test_metric_overview_matches_nested_sections(self) -> None:
-        expected_keys = {
-            "replay_business_days",
-            "slot_minutes",
-            "horizon_start_ts",
-            "horizon_end_ts",
-            "total_tickets",
-            "scheduled_tickets",
-            "tickets_in_backlog",
-            "total_first_response_tardiness_min",
-            "total_resolution_tardiness_min",
-            "scheduled",
-            "backlog",
-            "agent_utilization",
-            "overall_agent_utilization",
-        }
-        self.assertEqual(set(self.metrics.keys()), expected_keys)
-        self.assertEqual(self.metrics["horizon_start_ts"], "2026-03-02 08:00:00")
-        self.assertEqual(
-            self.metrics["scheduled_tickets"],
-            self.metrics["scheduled"]["ticket_count"],
-        )
-        self.assertEqual(
-            self.metrics["tickets_in_backlog"],
-            self.metrics["backlog"]["ticket_count"],
-        )
-        self.assertEqual(
-            self.metrics["total_first_response_tardiness_min"],
-            round(
-                self.metrics["scheduled"]["first_response_tardiness_min"]
-                + self.metrics["backlog"]["first_response_tardiness_min"],
-                2,
-            ),
-        )
-        self.assertEqual(
-            self.metrics["total_resolution_tardiness_min"],
-            round(
-                self.metrics["scheduled"]["resolution_tardiness_min"]
-                + self.metrics["backlog"]["resolution_tardiness_min"],
-                2,
-            ),
-        )
-        self.assertNotIn("scheduled_first_response_tardiness_min", self.metrics)
-        self.assertNotIn("scheduled_resolution_tardiness_min", self.metrics)
-        self.assertNotIn("backlog_tardiness_at_horizon_end", self.metrics)
-        self.assertNotIn("sla_violation_counts_by_priority", self.metrics)
-        self.assertNotIn("workload_minutes_per_agent", self.metrics)
-        self.assertNotIn("utilization_per_agent", self.metrics)
-
-    def test_scheduled_and_backlog_sections_share_schema(self) -> None:
-        scheduled = self.metrics["scheduled"]
-        backlog = self.metrics["backlog"]
-        self.assertEqual(set(scheduled.keys()), set(backlog.keys()))
-        self.assertEqual(
-            set(scheduled["by_priority"].keys()),
-            set(backlog["by_priority"].keys()),
-        )
-
-        for priority in scheduled["by_priority"]:
-            self.assertEqual(
-                set(scheduled["by_priority"][priority].keys()),
-                set(backlog["by_priority"][priority].keys()),
-            )
-
-        for section in (scheduled, backlog):
-            self.assertEqual(
-                sum(values["ticket_count"] for values in section["by_priority"].values()),
-                section["ticket_count"],
-            )
-            self.assertEqual(
-                sum(values["effort_min"] for values in section["by_priority"].values()),
-                section["effort_min"],
-            )
-            self.assertAlmostEqual(
-                sum(
-                    values["first_response_tardiness_min"]
-                    for values in section["by_priority"].values()
-                ),
-                section["first_response_tardiness_min"],
-                places=2,
-            )
-            self.assertAlmostEqual(
-                sum(
-                    values["resolution_tardiness_min"]
-                    for values in section["by_priority"].values()
-                ),
-                section["resolution_tardiness_min"],
-                places=2,
-            )
-
-    def test_agent_utilization_section_matches_schedule(self) -> None:
-        observed_agents = set(self.metrics["agent_utilization"].keys())
-        self.assertEqual(observed_agents, set(self.agent_by_id.keys()))
-
-        workload_by_agent = {agent_id: 0 for agent_id in self.agent_by_id}
-        solved_counts_by_agent = {
-            agent_id: {
-                "p1_tickets_solved": 0,
-                "p2_tickets_solved": 0,
-                "p3_tickets_solved": 0,
-                "p4_tickets_solved": 0,
-            }
-            for agent_id in self.agent_by_id
-        }
-        for entry in self.schedule:
-            if entry.status != "scheduled":
-                continue
-            workload_by_agent[entry.agent_id] += entry.duration_slots * SLOT_MINUTES
-            solved_counts_by_agent[entry.agent_id][
-                f"{entry.priority.lower()}_tickets_solved"
-            ] += 1
-
-        for agent_id, metrics in self.metrics["agent_utilization"].items():
-            agent = self.agent_by_id[agent_id]
-            capacity_minutes = (
-                self.metrics["replay_business_days"] * agent.capacity_min_per_day
-            )
-            self.assertEqual(
-                set(metrics.keys()),
-                {
-                    "workload_minutes",
-                    "capacity_minutes",
-                    "utilization",
-                    "p1_tickets_solved",
-                    "p2_tickets_solved",
-                    "p3_tickets_solved",
-                    "p4_tickets_solved",
-                },
-            )
-            self.assertEqual(metrics["workload_minutes"], workload_by_agent[agent_id])
-            self.assertEqual(metrics["capacity_minutes"], capacity_minutes)
-            self.assertEqual(
-                metrics["utilization"],
-                round(workload_by_agent[agent_id] / capacity_minutes, 4),
-            )
-            self.assertEqual(
-                metrics["p1_tickets_solved"],
-                solved_counts_by_agent[agent_id]["p1_tickets_solved"],
-            )
-            self.assertEqual(
-                metrics["p2_tickets_solved"],
-                solved_counts_by_agent[agent_id]["p2_tickets_solved"],
-            )
-            self.assertEqual(
-                metrics["p3_tickets_solved"],
-                solved_counts_by_agent[agent_id]["p3_tickets_solved"],
-            )
-            self.assertEqual(
-                metrics["p4_tickets_solved"],
-                solved_counts_by_agent[agent_id]["p4_tickets_solved"],
-            )
-
-    def test_overall_agent_utilization_matches_schedule(self) -> None:
-        total_workload_minutes = sum(
-            entry.duration_slots * SLOT_MINUTES
-            for entry in self.schedule
-            if entry.status == "scheduled"
-        )
-        total_capacity_minutes = sum(
-            self.metrics["replay_business_days"] * agent.capacity_min_per_day
-            for agent in self.agent_by_id.values()
-        )
-        overall = self.metrics["overall_agent_utilization"]
-
-        self.assertEqual(
-            set(overall.keys()),
-            {
-                "workload_minutes",
-                "workload_hours",
-                "capacity_minutes",
-                "capacity_hours",
-                "utilization",
-            },
-        )
-        self.assertEqual(overall["workload_minutes"], total_workload_minutes)
-        self.assertEqual(
-            overall["workload_hours"], round(total_workload_minutes / 60.0, 2)
-        )
-        self.assertEqual(overall["capacity_minutes"], total_capacity_minutes)
-        self.assertEqual(
-            overall["capacity_hours"], round(total_capacity_minutes / 60.0, 2)
-        )
-        self.assertEqual(
-            overall["utilization"],
-            round(total_workload_minutes / total_capacity_minutes, 4),
-        )
-        self.assertEqual(
-            overall["workload_minutes"],
-            sum(
-                metrics["workload_minutes"]
-                for metrics in self.metrics["agent_utilization"].values()
-            ),
-        )
-        self.assertEqual(
-            overall["capacity_minutes"],
-            sum(
-                metrics["capacity_minutes"]
-                for metrics in self.metrics["agent_utilization"].values()
-            ),
-        )
 
     def test_writer_creates_expected_outputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

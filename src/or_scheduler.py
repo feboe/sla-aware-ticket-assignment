@@ -16,12 +16,13 @@ from src.preprocessing import (
     AgentRecord,
     SLOT_MINUTES,
     TicketRecord,
-    business_days_inclusive,
     combine_date_and_time,
     day_slot_starts,
+    derive_replay_horizon,
     load_agents,
     load_tickets,
 )
+from src.schedule_validation import validate_output
 
 DEFAULT_OR_SCHEDULER_TIME_LIMIT_SEC = 1.0
 DEFAULT_OR_SCHEDULER_NUM_WORKERS = 1
@@ -62,14 +63,11 @@ def run_or_scheduler(
         tickets,
         key=lambda ticket: (ticket.release_ts, ticket.arrival_ts, ticket.ticket_id),
     )
-    first_day = min(ticket.arrival_ts.date() for ticket in tickets)
-    last_day = max(ticket.arrival_ts.date() for ticket in tickets)
-    replay_days = business_days_inclusive(first_day, last_day)
-
     earliest_shift_start = min(agent.shift_start for agent in agents)
     latest_shift_end = max(agent.shift_end for agent in agents)
-    horizon_start_ts = combine_date_and_time(replay_days[0], earliest_shift_start)
-    final_horizon_end = combine_date_and_time(replay_days[-1], latest_shift_end)
+    replay_days, horizon_start_ts, final_horizon_end = derive_replay_horizon(
+        tickets, agents
+    )
 
     open_tickets: dict[str, TicketRecord] = {}
     schedule_by_ticket: dict[str, ScheduleEntry] = {}
@@ -190,6 +188,7 @@ def run_or_scheduler(
         round(total_solve_time_sec / solve_call_count, 4) if solve_call_count else 0.0
     )
     metrics["solver_status_counts"] = dict(sorted(solver_status_counts.items()))
+    validate_output(ordered_schedule, metrics, tickets, agents)
     return OrSchedulerResult(schedule=ordered_schedule, metrics=metrics)
 
 

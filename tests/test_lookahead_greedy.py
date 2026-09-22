@@ -4,7 +4,7 @@ import csv
 import json
 import tempfile
 import unittest
-from datetime import datetime, time, timedelta
+from datetime import datetime, time
 from pathlib import Path
 
 from src.evaluation import SCHEDULE_FIELDNAMES, write_schedule_outputs
@@ -15,20 +15,18 @@ from src.lookahead_greedy import (
 )
 from src.preprocessing import (
     AgentRecord,
-    SLOT_MINUTES,
     TicketRecord,
     load_agents,
     load_tickets,
     round_effort_to_slots,
 )
 
-
 TICKETS_PATH = Path("data/tickets.csv")
 AGENTS_PATH = Path("data/agents.csv")
 
 
 class TestLookaheadGreedy(unittest.TestCase):
-    """Check determinism, feasibility, and future-slot reservation behavior."""
+    """Check determinism, I/O, and future-slot reservation behavior."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -37,8 +35,6 @@ class TestLookaheadGreedy(unittest.TestCase):
         cls.result = run_lookahead_greedy(cls.tickets, cls.agents)
         cls.schedule = cls.result.schedule
         cls.metrics = cls.result.metrics
-        cls.ticket_by_id = {ticket.ticket_id: ticket for ticket in cls.tickets}
-        cls.agent_by_id = {agent.agent_id: agent for agent in cls.agents}
 
     def test_run_is_deterministic(self) -> None:
         second_run = run_lookahead_greedy(self.tickets, self.agents)
@@ -47,109 +43,6 @@ class TestLookaheadGreedy(unittest.TestCase):
             [entry.to_row() for entry in second_run.schedule],
         )
         self.assertEqual(self.metrics, second_run.metrics)
-
-    def test_schedule_covers_all_tickets(self) -> None:
-        self.assertEqual(len(self.schedule), len(self.tickets))
-        self.assertEqual(
-            {entry.ticket_id for entry in self.schedule},
-            {ticket.ticket_id for ticket in self.tickets},
-        )
-        self.assertTrue(
-            {entry.status for entry in self.schedule}.issubset(
-                {"scheduled", "backlog_end"}
-            )
-        )
-
-    def test_assigned_tickets_respect_feasibility_and_timing(self) -> None:
-        for entry in self.schedule:
-            ticket = self.ticket_by_id[entry.ticket_id]
-            if entry.status != "scheduled":
-                self.assertEqual(entry.agent_id, "")
-                self.assertIsNone(entry.start_ts)
-                self.assertIsNone(entry.completion_ts)
-                continue
-
-            agent = self.agent_by_id[entry.agent_id]
-            self.assertIn(ticket.queue, agent.queue_permissions)
-            self.assertIn(ticket.language, agent.languages)
-            self.assertIn(ticket.priority, agent.priority_scope)
-            self.assertGreaterEqual(entry.start_ts, ticket.release_ts)
-            self.assertEqual(entry.start_ts.second, 0)
-            self.assertEqual(entry.start_ts.minute % SLOT_MINUTES, 0)
-            self.assertEqual(entry.start_ts.date(), entry.completion_ts.date())
-            self.assertEqual(
-                entry.completion_ts - entry.start_ts,
-                timedelta(minutes=ticket.duration_slots * SLOT_MINUTES),
-            )
-            self.assertGreaterEqual(
-                entry.start_ts,
-                datetime.combine(entry.start_ts.date(), agent.shift_start),
-            )
-            self.assertLessEqual(
-                entry.completion_ts,
-                datetime.combine(entry.start_ts.date(), agent.shift_end),
-            )
-
-    def test_no_double_booking_and_daily_capacity(self) -> None:
-        occupied_slots: set[tuple[str, datetime]] = set()
-        daily_minutes: dict[tuple[str, datetime.date], int] = {}
-
-        for entry in self.schedule:
-            if entry.status != "scheduled":
-                continue
-
-            agent = self.agent_by_id[entry.agent_id]
-            current = entry.start_ts
-            while current < entry.completion_ts:
-                key = (entry.agent_id, current)
-                self.assertNotIn(key, occupied_slots)
-                occupied_slots.add(key)
-                current += timedelta(minutes=SLOT_MINUTES)
-
-            day_key = (entry.agent_id, entry.start_ts.date())
-            daily_minutes[day_key] = daily_minutes.get(day_key, 0) + (
-                entry.duration_slots * SLOT_MINUTES
-            )
-            self.assertLessEqual(daily_minutes[day_key], agent.capacity_min_per_day)
-
-    def test_metrics_schema_matches_baseline_shape(self) -> None:
-        expected_keys = {
-            "replay_business_days",
-            "slot_minutes",
-            "horizon_start_ts",
-            "horizon_end_ts",
-            "total_tickets",
-            "scheduled_tickets",
-            "tickets_in_backlog",
-            "total_first_response_tardiness_min",
-            "total_resolution_tardiness_min",
-            "scheduled",
-            "backlog",
-            "agent_utilization",
-            "overall_agent_utilization",
-        }
-        self.assertEqual(set(self.metrics.keys()), expected_keys)
-        self.assertEqual(
-            self.metrics["scheduled_tickets"],
-            self.metrics["scheduled"]["ticket_count"],
-        )
-        self.assertEqual(
-            self.metrics["tickets_in_backlog"],
-            self.metrics["backlog"]["ticket_count"],
-        )
-
-    def test_metrics_top_level_shape_matches_greedy_baseline(self) -> None:
-        greedy_metrics = run_greedy_baseline(self.tickets, self.agents).metrics
-        self.assertEqual(set(self.metrics.keys()), set(greedy_metrics.keys()))
-        sample_agent_id = next(iter(self.metrics["agent_utilization"]))
-        self.assertEqual(
-            set(self.metrics["agent_utilization"][sample_agent_id].keys()),
-            set(greedy_metrics["agent_utilization"][sample_agent_id].keys()),
-        )
-        self.assertEqual(
-            set(self.metrics["overall_agent_utilization"].keys()),
-            set(greedy_metrics["overall_agent_utilization"].keys()),
-        )
 
     def test_writer_creates_expected_outputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -21,13 +21,14 @@ from src.preprocessing import (
     AgentRecord,
     SLOT_MINUTES,
     TicketRecord,
-    business_days_inclusive,
     combine_date_and_time,
     day_slot_starts,
+    derive_replay_horizon,
     is_agent_feasible,
     load_agents,
     load_tickets,
 )
+from src.schedule_validation import validate_output
 
 PRIORITY_RANK = {"P1": 0, "P2": 1, "P3": 2, "P4": 3}
 
@@ -72,14 +73,11 @@ def run_greedy_baseline(
         tickets,
         key=lambda ticket: (ticket.release_ts, ticket.arrival_ts, ticket.ticket_id),
     )
-    first_day = min(ticket.arrival_ts.date() for ticket in tickets)
-    last_day = max(ticket.arrival_ts.date() for ticket in tickets)
-    replay_days = business_days_inclusive(first_day, last_day)
-
     earliest_shift_start = min(agent.shift_start for agent in agents)
     latest_shift_end = max(agent.shift_end for agent in agents)
-    horizon_start_ts = combine_date_and_time(replay_days[0], earliest_shift_start)
-    final_horizon_end = combine_date_and_time(replay_days[-1], latest_shift_end)
+    replay_days, horizon_start_ts, final_horizon_end = derive_replay_horizon(
+        tickets, agents
+    )
 
     open_tickets: dict[str, TicketRecord] = {}
     schedule_by_ticket: dict[str, ScheduleEntry] = {}
@@ -230,6 +228,7 @@ def run_greedy_baseline(
         horizon_start_ts,
         final_horizon_end,
     )
+    validate_output(ordered_schedule, metrics, tickets, agents)
     return BaselineResult(schedule=ordered_schedule, metrics=metrics)
 
 

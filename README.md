@@ -228,3 +228,4 @@ The OR scheduler adds solver-specific diagnostics:
 - [Problem Formulation](docs/problem_formulation.md)
 - [Ticket Demand Dataset](docs/ticket_demand_dataset.md)
 - [Agent Supply Dataset](docs/agent_supply_dataset.md)
+- [Output Validation](docs/output_validation.md)

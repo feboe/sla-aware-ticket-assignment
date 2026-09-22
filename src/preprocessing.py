@@ -103,6 +103,36 @@ def day_slot_starts(
     return slot_starts
 
 
+def derive_replay_horizon(
+    tickets: list[TicketRecord], agents: list[AgentRecord]
+) -> tuple[list[date], datetime, datetime]:
+    """Return replay business days plus the shared start and end timestamps.
+
+    Policies and output validation must use the same definition of the replay
+    horizon.  The caller is responsible for rejecting empty ticket or agent
+    collections before invoking this helper.
+    """
+
+    if not tickets:
+        raise ValueError("Cannot derive a replay horizon without tickets.")
+    if not agents:
+        raise ValueError("Cannot derive a replay horizon without agents.")
+
+    first_day = min(ticket.arrival_ts.date() for ticket in tickets)
+    last_day = max(ticket.arrival_ts.date() for ticket in tickets)
+    replay_days = business_days_inclusive(first_day, last_day)
+    if not replay_days:
+        raise ValueError("Ticket horizon contains no business days.")
+
+    earliest_shift_start = min(agent.shift_start for agent in agents)
+    latest_shift_end = max(agent.shift_end for agent in agents)
+    return (
+        replay_days,
+        combine_date_and_time(replay_days[0], earliest_shift_start),
+        combine_date_and_time(replay_days[-1], latest_shift_end),
+    )
+
+
 def load_tickets(ticket_csv_path: str | Path) -> list[TicketRecord]:
     """Load the ticket CSV and derive release times and slot durations."""
 
